@@ -596,21 +596,26 @@ function openAportarMeta(id) {
     if (isNaN(monto) || monto <= 0) { toast('Ingresa un monto válido'); return; }
     const descontar = document.getElementById('ap-descontar').checked;
     withLoading(this, async function () {
-      await apiFetch('/metas/' + id + '/aportar', {
+      const actualizada = await apiFetch('/metas/' + id + '/aportar', {
         method: 'POST', body: JSON.stringify({ monto: monto, metodo: metodo, descontar: descontar })
       });
-      await refresh(); m.close(); toast('¡Aportación guardada!');
+      await refresh(); m.close();
+      const completada = Number(actualizada.montoActual) >= Number(actualizada.montoObjetivo);
+      toast(completada ? '¡Meta completada! 🎉 Ya no cuenta en tu total de "En metas"' : '¡Aportación guardada!');
     });
   });
 }
 function openMetaDetalle(id) {
   const meta = state.metas.find(function (x) { return x.id === id; }); if (!meta) return;
+  const completada = Number(meta.montoActual) >= Number(meta.montoObjetivo);
   const m = openModal(
     '<div class="sheet-title">' + escapeHtml(meta.nombre) + '</div>' +
     '<div class="kv"><span class="kv-label">Objetivo</span><span class="kv-value">' + money(meta.montoObjetivo) + '</span></div>' +
     '<div class="kv"><span class="kv-label">Ahorrado</span><span class="kv-value">' + money(meta.montoActual) + '</span></div>' +
     '<div class="kv"><span class="kv-label">Falta</span><span class="kv-value">' + money(Math.max(0, meta.montoObjetivo - meta.montoActual)) + '</span></div>' +
-    '<div class="btn-row"><button class="btn-ghost btn-danger" id="meta-del" style="flex:1">Eliminar meta</button></div>'
+    '<div class="kv"><span class="kv-label">Estado</span><span class="kv-value" style="color:' + (completada ? 'var(--cyan)' : 'var(--text)') + '">' + (completada ? 'Completada ✓' : 'En progreso') + '</span></div>' +
+    '<div class="btn-row"><button class="btn-ghost btn-danger" id="meta-del" style="flex:1">Eliminar meta</button></div>' +
+    (completada ? '<div class="hint">Como ya llegaste a tu objetivo, este monto dejó de contarse en el chip "En metas" de Inicio — se asume que ese dinero ya se va a usar en tu compra.</div>' : '')
   );
   document.getElementById('meta-del').addEventListener('click', function () {
     withLoading(this, async function () {

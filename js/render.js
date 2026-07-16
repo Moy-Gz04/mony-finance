@@ -13,7 +13,9 @@ function totalInvertido() {
   return state.inversiones.reduce(function (s, i) { return s + Number(i.monto || 0); }, 0);
 }
 function totalMetas() {
-  return state.metas.reduce(function (s, m) { return s + Number(m.montoActual || 0); }, 0);
+  return state.metas
+    .filter(function (m) { return Number(m.montoActual || 0) < Number(m.montoObjetivo || 0); })
+    .reduce(function (s, m) { return s + Number(m.montoActual || 0); }, 0);
 }
 function avgRating() {
   const rated = state.gastos.filter(function (g) { return g.rating != null; });
@@ -278,18 +280,26 @@ function renderMetas() {
     list.innerHTML = '<div class="empty"><b>Sin metas activas</b>Crea un plan de ahorro para lo que quieres comprar.</div>';
     return;
   }
-  list.innerHTML = state.metas.map(function (m) {
+  const sorted = state.metas.slice().sort(function (a, b) {
+    const ca = Number(a.montoActual) >= Number(a.montoObjetivo) ? 1 : 0;
+    const cb = Number(b.montoActual) >= Number(b.montoObjetivo) ? 1 : 0;
+    return ca - cb;
+  });
+  list.innerHTML = sorted.map(function (m) {
+    const completada = Number(m.montoActual) >= Number(m.montoObjetivo);
     const pct = Math.min(100, (m.montoActual / Math.max(1, m.montoObjetivo)) * 100);
     return (
-      '<div class="card" style="padding:16px 18px;">' +
+      '<div class="card" style="padding:16px 18px;' + (completada ? ' opacity:.75;' : '') + '">' +
         '<div class="kv" style="border:none; padding:0 0 8px;">' +
           '<span style="font-weight:700; font-size:14px;">' + escapeHtml(m.nombre) + '</span>' +
-          '<span class="kv-value" style="font-size:12.5px;">' + money(m.montoActual) + ' / ' + money(m.montoObjetivo) + '</span>' +
+          (completada
+            ? '<span class="row-badge badge-ok">Completada ✓</span>'
+            : '<span class="kv-value" style="font-size:12.5px;">' + money(m.montoActual) + ' / ' + money(m.montoObjetivo) + '</span>') +
         '</div>' +
-        '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%; background:' + (completada ? 'var(--cyan)' : 'linear-gradient(90deg, var(--cyan), var(--violet))') + '"></div></div>' +
         '<div class="btn-row" style="margin-top:12px;">' +
-          '<button class="small-btn primary" style="flex:1" onclick="openAportarMeta(\'' + m.id + '\')">Aportar</button>' +
-          '<button class="small-btn" onclick="openMetaDetalle(\'' + m.id + '\')">Detalles</button>' +
+          (completada ? '' : '<button class="small-btn primary" style="flex:1" onclick="openAportarMeta(\'' + m.id + '\')">Aportar</button>') +
+          '<button class="small-btn" style="' + (completada ? 'flex:1' : '') + '" onclick="openMetaDetalle(\'' + m.id + '\')">Detalles</button>' +
         '</div>' +
       '</div>'
     );

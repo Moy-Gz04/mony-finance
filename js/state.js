@@ -1,0 +1,260 @@
+/* ==================================================================
+   NEXUSFIN · STATE
+   ------------------------------------------------------------------
+   Modelo de datos, persistencia y utilidades compartidas.
+   Hoy guarda todo en localStorage; cuando conectemos Neo4j + Render,
+   solo hay que reemplazar loadState()/saveState() por llamadas a la
+   API — el resto de la app no debería tener que cambiar.
+   ================================================================== */
+
+const STORAGE_KEY = 'nexusfin-state-v1';
+const CREDENTIALS = { user: 'Moy', pass: '1234' };
+
+/* Iconos SVG tipo "outline", en la misma línea visual que el resto de la
+   interfaz (stroke-width 1.7, sin relleno, esquinas redondeadas). Se
+   pintan con currentColor, así toman automáticamente el color de cada
+   categoría desde el contenedor donde se insertan. */
+const ICON_SVG = {
+  alimentos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="2.5" x2="7" y2="21.5"/><path d="M4.5 2.5v6a2.5 2.5 0 0 0 5 0v-6"/><path d="M17 2.5c-1.8.3-3 2.4-3 5.5 0 2.6 1.1 4 3 4.3V21.5"/></svg>',
+  ropa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 6.5 6 9l1.5-1V20a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V8l1.5 1 2-2.5L16 3c-.7 1.6-2.2 2.5-4 2.5S8.7 4.6 8 3Z"/></svg>',
+  entretenimiento: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="8" width="19" height="10" rx="5"/><path d="M6 11v4M4 13h4"/><circle cx="15.3" cy="11.3" r="1"/><circle cx="18" cy="14" r="1"/></svg>',
+  tecnologia: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.5" width="16" height="10.5" rx="1.5"/><path d="M2 19.5h20l-1.6-3.5H3.6L2 19.5Z"/></svg>',
+  pareja: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.8-9.3C.7 7.8 2.4 4.5 6 4c2.3-.3 4.3 1 6 3 1.7-2 3.7-3.3 6-3 3.6.5 5.3 3.8 3.8 7.2-2.3 4.7-9.8 9.3-9.8 9.3Z"/></svg>',
+  transporte: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16V11l2-5h12l2 5v5"/><path d="M2.5 16h19v3a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-1h-11v1a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1v-3Z"/><circle cx="7" cy="16" r="1.4"/><circle cx="17" cy="16" r="1.4"/></svg>',
+  salud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h4l2-6 3 12 2-9 1.5 3h6.5"/></svg>',
+  hogar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg>',
+  otros: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg>',
+  apuestas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4.5"/><circle cx="8" cy="8" r="1.15" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.15" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.15" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/></svg>'
+};
+const CATEGORIAS = [
+  { id: 'alimentos', label: 'Alimentos', icon: ICON_SVG.alimentos, color: '#7CD992' },
+  { id: 'ropa', label: 'Ropa', icon: ICON_SVG.ropa, color: '#8B6BFF' },
+  { id: 'entretenimiento', label: 'Entretenimiento', icon: ICON_SVG.entretenimiento, color: '#FF9F5A' },
+  { id: 'tecnologia', label: 'Tecnología', icon: ICON_SVG.tecnologia, color: '#00E6C3' },
+  { id: 'pareja', label: 'Novia / Pareja', icon: ICON_SVG.pareja, color: '#FF4F70' },
+  { id: 'transporte', label: 'Transporte', icon: ICON_SVG.transporte, color: '#5AA9FF' },
+  { id: 'salud', label: 'Salud', icon: ICON_SVG.salud, color: '#FFD35A' },
+  { id: 'hogar', label: 'Hogar', icon: ICON_SVG.hogar, color: '#B98BFF' },
+  { id: 'otros', label: 'Otros', icon: ICON_SVG.otros, color: '#8792A6' }
+];
+const GRUPO_NECESIDAD = ['alimentos', 'hogar', 'salud', 'transporte'];
+
+/* Métodos de pago: cada ingreso/gasto/inversión se liga a uno de estos,
+   y cada uno mueve el saldo correspondiente automáticamente. */
+const METODOS_PAGO = [
+  { id: 'efectivo', label: 'Efectivo' },
+  { id: 'electronico', label: 'Tarjeta / dinero electrónico' }
+];
+
+function defaultState() {
+  return {
+    saldo: { efectivo: 0, tarjeta: 15000 },
+    ingresos: [],
+    gastos: [],
+    deudas: [],
+    inversiones: [],
+    metas: [],
+    apuestas: [],
+    fondoEmergencia: { actual: 0, mesesObjetivo: 6, gastoMensual: 3000 },
+    config: {
+      tasaSofipoDefault: 10,
+      distribucion: { necesidades: 50, deseos: 30, ahorro: 20 },
+      pagosPendientesColapsado: false
+    }
+  };
+}
+
+let state = defaultState();
+let currentView = 'inicio';
+let currentSub = 'gastos';
+
+/* ---------- persistencia (localStorage por ahora) ---------- */
+async function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state = Object.assign(defaultState(), parsed);
+      // Migración: versiones anteriores guardaban un solo campo "liquido".
+      // Si no existe el nuevo objeto "saldo", lo reconstruimos a partir de él
+      // (todo el dinero previo se asume como saldo en tarjeta).
+      if (!parsed.saldo) {
+        const previo = Number(parsed.liquido) || 0;
+        state.saldo = { efectivo: 0, tarjeta: previo };
+      } else {
+        state.saldo = {
+          efectivo: Number(parsed.saldo.efectivo) || 0,
+          tarjeta: Number(parsed.saldo.tarjeta) || 0
+        };
+      }
+      delete state.liquido;
+      if (!state.config.distribucion) state.config.distribucion = defaultState().config.distribucion;
+      if (state.config.pagosPendientesColapsado == null) state.config.pagosPendientesColapsado = false;
+      if (!Array.isArray(state.apuestas)) state.apuestas = [];
+      // Migración: antes el "Monto total" de una deuda nunca bajaba al ir
+      // pagando cuotas. Ahora cada deuda lleva su propio saldo pendiente.
+      state.deudas.forEach(function (d) {
+        if (d.montoPendiente == null) {
+          const pagos = d.tipo === 'unico' ? (d.pagada ? 1 : 0) : (d.pagosRealizados || 0);
+          d.montoPendiente = Math.max(0, Number(d.montoTotal || 0) - pagos * Number(d.montoCuota || 0));
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('No se pudo cargar el estado guardado', e);
+  }
+}
+let saveTimer = null;
+function saveState() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    catch (e) { console.error('Error guardando estado', e); }
+  }, 200);
+}
+
+/* ---------- helpers ---------- */
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function money(n) {
+  n = Number(n) || 0;
+  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+function moneyDec(n) {
+  n = Number(n) || 0;
+  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00'); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10);
+}
+function addMonths(dateStr, months) {
+  const d = new Date(dateStr + 'T00:00:00'); d.setMonth(d.getMonth() + months); return d.toISOString().slice(0, 10);
+}
+function daysUntil(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00'); const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.round((d - t) / 86400000);
+}
+function fmtDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+}
+function catInfo(id) { return CATEGORIAS.find(function (c) { return c.id === id; }) || CATEGORIAS[CATEGORIAS.length - 1]; }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function () { t.classList.remove('show'); }, 2200);
+}
+function starSvgFull(cls) {
+  return '<svg class="' + cls + '" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6.4 6.9.7-5.2 4.8 1.5 6.9L12 17.8 5.9 21.3l1.5-6.9L2.2 9.6l6.9-.7z"/></svg>';
+}
+function renderStars(container, score, size) {
+  size = size || 18;
+  container.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const span = document.createElement('span');
+    span.className = 'star';
+    span.style.setProperty('--star-size', size + 'px');
+    const pct = Math.max(0, Math.min(1, score - (i - 1))) * 100;
+    span.innerHTML =
+      '<span class="bg">' + starSvgFull('') + '</span>' +
+      '<span class="fg" style="width:' + pct + '%">' + starSvgFull('') + '</span>';
+    container.appendChild(span);
+  }
+}
+
+/* ---------- saldo (efectivo + tarjeta = patrimonio líquido) ----------
+   Todo movimiento de dinero pasa por aquí para que el saldo se ajuste
+   solo: los ingresos lo aumentan, los gastos y las inversiones lo
+   disminuyen. 'metodo' es 'efectivo' o 'electronico' (electronico
+   siempre mueve el saldo de tarjeta). */
+function metodoKey(metodo) { return metodo === 'efectivo' ? 'efectivo' : 'tarjeta'; }
+function ajustarSaldo(metodo, delta) {
+  if (!state.saldo) state.saldo = { efectivo: 0, tarjeta: 0 };
+  const key = metodoKey(metodo);
+  state.saldo[key] = (Number(state.saldo[key]) || 0) + Number(delta || 0);
+}
+function saldoTotal() {
+  if (!state.saldo) return 0;
+  return (Number(state.saldo.efectivo) || 0) + (Number(state.saldo.tarjeta) || 0);
+}
+function metodoLabel(metodo) {
+  const m = METODOS_PAGO.find(function (x) { return x.id === metodo; });
+  return m ? m.label : 'Efectivo';
+}
+
+/* Deshace en el saldo lo que una apuesta haya movido, sin importar su
+   estado actual — se usa al eliminar un registro de apuesta. */
+function revertApuestaSaldo(a) {
+  ajustarSaldo('electronico', Number(a.montoApostado) || 0);
+  if (a.estado === 'ganada' && a.montoGanado) {
+    ajustarSaldo('electronico', -Number(a.montoGanado));
+  }
+}
+
+/* Frases sobre finanzas personales, en tono libre (no cita textual),
+   atribuidas a quien las inspiró. Rotan solas en la pantalla de Inicio. */
+const QUOTES_FINANZAS = [
+  { texto: 'El dinero es un excelente empleado, pero un terrible jefe.', autor: 'Anónimo' },
+  { texto: 'No ahorres lo que te sobra después de gastar; gasta lo que te sobra después de ahorrar.', autor: 'Warren Buffett' },
+  { texto: 'Cada peso que inviertes hoy puede convertirse en cientos mañana si le das tiempo.', autor: 'Anónimo' },
+  { texto: 'Un peso ahorrado, bien visto, es un peso que ya ganaste dos veces.', autor: 'Benjamin Franklin' },
+  { texto: 'La riqueza no se construye gastando menos un día, sino tomando mejores decisiones durante años.', autor: 'Anónimo' },
+  { texto: 'No trabajes solo por dinero: aprende a hacer que el dinero trabaje para ti.', autor: 'Robert Kiyosaki' },
+  { texto: 'Invertir no es hacerse rico rápido; es evitar seguir siendo pobre lentamente.', autor: 'Anónimo' },
+  { texto: 'Antes de comprar algo, pregúntate si ese gasto te acerca o te aleja de tus metas.', autor: 'Suze Orman' },
+  { texto: 'El interés compuesto recompensa más la paciencia que la inteligencia.', autor: 'Anónimo' },
+  { texto: 'No importa tanto cuánto ganas, sino cuánto logras conservar de lo que ganas.', autor: 'T. Harv Eker' },
+  { texto: 'Quien controla sus gastos controla una parte importante de su futuro.', autor: 'Anónimo' },
+  { texto: 'Vive hoy como pocos quieren vivir, para poder vivir mañana como pocos pueden.', autor: 'Dave Ramsey' },
+  { texto: 'No necesitas ganar más para empezar a invertir; necesitas empezar.', autor: 'Anónimo' },
+  { texto: 'El riesgo más grande viene de no saber bien en qué estás gastando tu dinero.', autor: 'Warren Buffett' },
+  { texto: 'El mejor momento para invertir fue ayer. El segundo mejor es cuando estés preparado.', autor: 'Anónimo' },
+  { texto: 'La primera regla para acumular riqueza es simple: no gastes más de lo que necesitas.', autor: 'Charlie Munger' },
+  { texto: 'Cada compra es un voto por la vida financiera que tendrás mañana.', autor: 'Anónimo' },
+  { texto: 'Una parte de todo lo que ganas siempre debería quedarse contigo primero.', autor: 'George S. Clason' },
+  { texto: 'La libertad financiera nace cuando tus activos trabajan más que tú.', autor: 'Anónimo' },
+  { texto: 'Los ricos compran activos; el resto compra cosas que cree que son activos.', autor: 'Robert Kiyosaki' },
+  { texto: 'El ahorro protege tu presente; la inversión construye tu futuro.', autor: 'Anónimo' },
+  { texto: 'Nunca dependas de un solo ingreso: busca cómo construir una segunda fuente.', autor: 'Warren Buffett' },
+  { texto: 'No persigas dinero. Construye valor y el dinero tendrá razones para seguirte.', autor: 'Anónimo' },
+  { texto: 'Cuidado con los gastos pequeños: una fuga chiquita puede hundir un barco grande.', autor: 'Benjamin Franklin' },
+  { texto: 'El patrimonio crece cuando dejas de impresionar a otros y empiezas a invertir en ti.', autor: 'Anónimo' },
+  { texto: 'Antes de invertir en algo, primero entiende de verdad en qué estás invirtiendo.', autor: 'Phil Town' },
+  { texto: 'Las pequeñas inversiones constantes suelen vencer a los grandes impulsos.', autor: 'Anónimo' },
+  { texto: 'El dinero es una herramienta para vivir mejor, no un fin en sí mismo.', autor: 'Ramit Sethi' },
+  { texto: 'La paciencia es una habilidad financiera tan importante como saber calcular.', autor: 'Anónimo' },
+  { texto: 'Un presupuesto te dice, con anticipación, a dónde va a ir tu dinero.', autor: 'John C. Maxwell' },
+  { texto: 'Las oportunidades favorecen a quien tiene liquidez y preparación.', autor: 'Anónimo' },
+  { texto: 'La disciplina de hoy con tu dinero es la libertad de mañana.', autor: 'Napoleon Hill' },
+  { texto: 'No midas tu éxito por lo que ganas, sino por lo que conservas y haces crecer.', autor: 'Anónimo' },
+  { texto: 'El tiempo es el socio silencioso de toda buena inversión.', autor: 'Anónimo' },
+  { texto: 'Invertir en conocimiento suele ofrecer el mejor rendimiento.', autor: 'Anónimo' },
+  { texto: 'Quien entiende el riesgo toma mejores decisiones que quien solo busca ganancias.', autor: 'Anónimo' },
+  { texto: 'Las deudas consumen ingresos; los activos los generan.', autor: 'Anónimo' },
+  { texto: 'El dinero multiplica los hábitos que ya tienes.', autor: 'Anónimo' },
+  { texto: 'Las decisiones financieras pequeñas, repetidas todos los días, construyen grandes fortunas.', autor: 'Anónimo' },
+  { texto: 'No esperes la oportunidad perfecta. Empieza con lo que tienes y mejora en el camino.', autor: 'Anónimo' },
+  { texto: 'Tu mejor inversión siempre será aquella que entiendes completamente.', autor: 'Anónimo' },
+  { texto: 'La riqueza es el resultado de decisiones consistentes, no de golpes de suerte.', autor: 'Anónimo' },
+  { texto: 'Cada peso tiene una misión. Dale una antes de que desaparezca.', autor: 'Anónimo' },
+  { texto: 'Las ganancias rápidas llaman la atención; las ganancias constantes construyen patrimonio.', autor: 'Anónimo' },
+  { texto: 'La educación financiera paga dividendos durante toda la vida.', autor: 'Anónimo' }
+];
+
+/* mapea el 'tone' neutro del evaluador a un color de la paleta */
+function toneColor(tone) {
+  return {
+    excellent: 'var(--cyan)',
+    good: 'var(--cyan)',
+    warn: 'var(--amber)',
+    bad: 'var(--coral)',
+    avoid: 'var(--coral)'
+  }[tone] || 'var(--text)';
+}

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NEXUSFIN · Centro de control financiero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= LOGIN ================= -->
+  <div id="screen-login">
+    <div class="login-glow"></div>
+    <div class="login-mark">SISTEMA&nbsp;PRIVADO</div>
+    <img src="img/logo.png" alt="NEXUSFIN" class="login-logo">
+    <div class="login-sub">Tu centro de control financiero</div>
+    <div class="login-card" id="login-card">
+      <div class="field">
+        <label>Usuario</label>
+        <input type="text" id="input-user" autocomplete="username" placeholder="Usuario">
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="input-pass" autocomplete="current-password" placeholder="••••••">
+      </div>
+      <button class="btn-primary" id="btn-login">Entrar al sistema</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+    <div class="login-hint">Acceso local · la sincronización con Neo4j llegará después</div>
+  </div>
+
+  <!-- ================= MAIN ================= -->
+  <div id="screen-main" hidden>
+    <div class="topbar">
+      <div class="brand"><img src="img/logo.png" alt="NEXUSFIN" class="brand-logo"></div>
+      <div class="header-row">
+        <button class="icon-btn" id="btn-settings" title="Configuración">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.3 2h3.4l.5 2.8a7.8 7.8 0 0 1 1.8 1l2.7-1 1.7 2.9-2.2 1.9c.06.4.1.8.1 1.2s-.04.8-.1 1.2l2.2 1.9-1.7 2.9-2.7-1a7.8 7.8 0 0 1-1.8 1l-.5 2.8h-3.4l-.5-2.8a7.8 7.8 0 0 1-1.8-1l-2.7 1-1.7-2.9 2.2-1.9a8 8 0 0 1 0-2.4L3.6 7.7l1.7-2.9 2.7 1a7.8 7.8 0 0 1 1.8-1z"/><circle cx="12" cy="12" r="2.6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <main id="content">
+
+      <!-- ===== INICIO ===== -->
+      <section class="view" id="view-inicio">
+        <div class="quote-ticker" id="quote-ticker"></div>
+        <div class="card hero-card">
+          <div class="hero-top">
+            <div>
+              <div class="hero-label">Patrimonio total</div>
+            </div>
+            <button class="hero-edit" id="btn-edit-liquido">Ajustar</button>
+          </div>
+          <div class="ring-wrap">
+            <svg class="ring-svg" width="92" height="92" viewBox="0 0 92 92">
+              <defs>
+                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#00E6C3"/>
+                  <stop offset="100%" stop-color="#8B6BFF"/>
+                </linearGradient>
+              </defs>
+              <circle class="ring-track" cx="46" cy="46" r="38"></circle>
+              <circle class="ring-fill" id="ring-fill" cx="46" cy="46" r="38" stroke-dasharray="238.76" stroke-dashoffset="238.76"></circle>
+            </svg>
+            <div>
+              <div class="hero-amount" id="hero-amount">$0<span>MXN</span></div>
+              <div class="hero-sub" id="hero-sub">Dinero líquido disponible hoy</div>
+              <div class="saldo-breakdown" id="saldo-breakdown"></div>
+            </div>
+          </div>
+          <div class="chip-row">
+            <div class="chip">
+              <div class="chip-label"><span class="dot" style="background:var(--coral)"></span>Deudas</div>
+              <div class="chip-value" id="chip-deudas">$0</div>
+            </div>
+            <div class="chip">
+              <div class="chip-label"><span class="dot" style="background:var(--violet)"></span>Invertido</div>
+              <div class="chip-value" id="chip-inversion">$0</div>
+            </div>
+            <div class="chip">
+              <div class="chip-label"><span class="dot" style="background:var(--cyan)"></span>En metas</div>
+              <div class="chip-value" id="chip-metas">$0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card rating-card">
+          <div class="rating-left">
+            <div class="rating-title">Calificación de tus compras</div>
+            <div class="rating-big" id="rating-big">— .—</div>
+            <div class="rating-count" id="rating-count">Sin compras evaluadas aún</div>
+          </div>
+          <div class="stars" id="rating-stars-home"></div>
+        </div>
+
+        <div id="home-debts-header"></div>
+        <div id="home-debts-list"></div>
+
+        <div class="section-title">Fondo de emergencia</div>
+        <div class="card" id="home-emergency-card"></div>
+      </section>
+
+      <!-- ===== MOVIMIENTOS ===== -->
+      <section class="view" id="view-mov" hidden>
+        <div class="subtabs">
+          <button class="subtab active" data-sub="gastos">Gastos</button>
+          <button class="subtab" data-sub="ingresos">Ingresos</button>
+          <button class="subtab" data-sub="plan">Plan</button>
+        </div>
+
+        <div id="sub-gastos">
+          <div class="section-title">Historial de gastos</div>
+          <div id="gastos-list"></div>
+        </div>
+
+        <div id="sub-ingresos" hidden>
+          <div class="section-title">Salario y entradas</div>
+          <div id="ingresos-list"></div>
+        </div>
+
+        <div id="sub-plan" hidden>
+          <div class="section-title">Plan de distribución</div>
+          <div class="card" id="plan-card"></div>
+          <div class="hint">Basado en el total de tus ingresos registrados. Ajusta los porcentajes en Configuración.</div>
+        </div>
+      </section>
+
+      <!-- ===== DEUDAS ===== -->
+      <section class="view" id="view-deudas" hidden>
+        <div class="section-title">Recordatorio de pagos</div>
+        <div id="deudas-list"></div>
+        <div id="deudas-pagadas-wrap" hidden>
+          <div class="section-title">Deudas pagadas</div>
+          <div id="deudas-pagadas-list"></div>
+        </div>
+      </section>
+
+      <!-- ===== INVERSIÓN ===== -->
+      <section class="view" id="view-inversion" hidden>
+        <div class="card" id="inversion-summary"></div>
+        <div class="section-title">SOFIPOS registradas</div>
+        <div id="inversion-list"></div>
+      </section>
+
+      <!-- ===== METAS ===== -->
+      <section class="view" id="view-metas" hidden>
+        <div class="section-title">Metas de ahorro</div>
+        <div id="metas-list"></div>
+      </section>
+
+      <!-- ===== APUESTAS ===== -->
+      <section class="view" id="view-apuestas" hidden>
+        <div class="card" id="apuestas-chart"></div>
+        <div class="section-title">Historial de apuestas</div>
+        <div id="apuestas-list"></div>
+      </section>
+
+      <!-- ===== CONFIG ===== -->
+      <section class="view" id="view-config" hidden>
+        <button class="btn-ghost" id="btn-back-config" style="margin-bottom:16px;">← Volver</button>
+
+        <div class="section-title">Inversiones</div>
+        <div class="card">
+          <div class="field" style="margin-bottom:0;">
+            <label>Tasa anual SOFIPO por defecto (%)</label>
+            <input type="number" id="cfg-tasa" step="0.1">
+          </div>
+        </div>
+
+        <div class="section-title">Fondo de emergencia</div>
+        <div class="card">
+          <div class="field">
+            <label>Meses objetivo</label>
+            <input type="number" id="cfg-meses" step="1">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Gasto mensual base (MXN)</label>
+            <input type="number" id="cfg-gasto" step="100">
+          </div>
+        </div>
+
+        <div class="section-title">Plan de distribución (%)</div>
+        <div class="card">
+          <div class="field">
+            <label>Necesidades</label>
+            <input type="number" id="cfg-nec" step="1">
+          </div>
+          <div class="field">
+            <label>Deseos</label>
+            <input type="number" id="cfg-des" step="1">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Ahorro</label>
+            <input type="number" id="cfg-aho" step="1">
+          </div>
+          <div class="hint" id="cfg-sum-hint"></div>
+        </div>
+
+        <button class="btn-primary" id="btn-save-config" style="margin-bottom:14px;">Guardar configuración</button>
+        <button class="btn-ghost btn-danger" id="btn-logout">Cerrar sesión</button>
+        <div class="hint" style="text-align:center; margin-top:18px;">NEXUSFIN v0.1 · Motor local · Neo4j + Render próximamente</div>
+      </section>
+
+    </main>
+
+    <button class="fab" id="fab-add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+
+    <nav class="tabbar">
+      <button class="tab-btn active" data-view="inicio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg>
+        Inicio
+      </button>
+      <button class="tab-btn" data-view="mov">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+        Movimientos
+      </button>
+      <button class="tab-btn" data-view="deudas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 14h4"/></svg>
+        Deudas
+      </button>
+      <button class="tab-btn" data-view="inversion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18V9M10 18V5M16 18v-7M22 18v-3" stroke-linecap="round"/></svg>
+        Inversión
+      </button>
+      <button class="tab-btn" data-view="metas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/></svg>
+        Metas
+      </button>
+      <button class="tab-btn" data-view="apuestas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="4.5"/><circle cx="8" cy="8" r="1.15" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.15" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.15" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/></svg>
+        Apuestas
+      </button>
+    </nav>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<!-- Orden importa: state -> evaluador (aislado) -> render -> modales -> app -->
+<script src="js/state.js"></script>
+<script src="js/purchase-evaluator.js"></script>
+<script src="js/render.js"></script>
+<script src="js/modals.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

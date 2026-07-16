@@ -1,26 +1,9 @@
 /* ==================================================================
    NEXUSFIN · APP
    ------------------------------------------------------------------
-   Punto de entrada: login, navegación entre vistas, botón flotante,
-   configuración y arranque de la app.
+   Punto de entrada: login (contra la API real), navegación entre
+   vistas, botón flotante, configuración y arranque de la app.
    ================================================================== */
-
-/* ---------------- SESIÓN ---------------- */
-/* Una vez autenticado, la sesión se guarda en localStorage para que el
-   login no vuelva a aparecer al recargar la página o reabrir la app.
-   Desaparece solo si el usuario cierra sesión manualmente. */
-const SESSION_KEY = 'nexusfin-session-v1';
-
-function hasActiveSession() {
-  try { return localStorage.getItem(SESSION_KEY) === '1'; }
-  catch (e) { return false; }
-}
-function setSession(active) {
-  try {
-    if (active) localStorage.setItem(SESSION_KEY, '1');
-    else localStorage.removeItem(SESSION_KEY);
-  } catch (e) { /* localStorage no disponible, la app sigue funcionando sin persistencia */ }
-}
 
 /* ---------------- BARRA DE FRASES DE FINANZAS ---------------- */
 let quoteIndex = Math.floor(Math.random() * QUOTES_FINANZAS.length);
@@ -50,10 +33,16 @@ function startQuoteTicker() {
 function initSaldo() {
   document.getElementById('btn-edit-liquido').addEventListener('click', openEditLiquido);
 }
-function toggleHomePagos() {
-  state.config.pagosPendientesColapsado = !state.config.pagosPendientesColapsado;
-  saveState();
+async function toggleHomePagos() {
+  const nuevoValor = !state.config.pagosPendientesColapsado;
+  state.config.pagosPendientesColapsado = nuevoValor; // optimista, se ve al instante
   renderInicio();
+  try {
+    await apiFetch('/config', { method: 'PUT', body: JSON.stringify({ pagosPendientesColapsado: nuevoValor }) });
+  } catch (err) {
+    // Falló guardar la preferencia, pero no es grave — no interrumpimos con un toast.
+    console.warn('No se pudo guardar la preferencia de pagos pendientes', err);
+  }
 }
 
 /* ---------------- NAVEGACIÓN ---------------- */
@@ -131,17 +120,38 @@ function initConfig() {
   ['cfg-nec', 'cfg-des', 'cfg-aho'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', updateSumHint);
   });
-  document.getElementById('btn-save-config').addEventListener('click', function () {
-    state.config.tasaSofipoDefault = parseFloat(document.getElementById('cfg-tasa').value) || state.config.tasaSofipoDefault;
-    state.fondoEmergencia.mesesObjetivo = parseFloat(document.getElementById('cfg-meses').value) || state.fondoEmergencia.mesesObjetivo;
-    state.fondoEmergencia.gastoMensual = parseFloat(document.getElementById('cfg-gasto').value) || state.fondoEmergencia.gastoMensual;
-    state.config.distribucion.necesidades = parseFloat(document.getElementById('cfg-nec').value) || 0;
-    state.config.distribucion.deseos = parseFloat(document.getElementById('cfg-des').value) || 0;
-    state.config.distribucion.ahorro = parseFloat(document.getElementById('cfg-aho').value) || 0;
-    saveState(); renderAll(); toast('Configuración guardada');
+  document.getElementById('btn-save-config').addEventListener('click', async function () {
+    const btn = document.getElementById('btn-save-config');
+    const tasaSofipoDefault = parseFloat(document.getElementById('cfg-tasa').value) || state.config.tasaSofipoDefault;
+    const mesesObjetivo = parseFloat(document.getElementById('cfg-meses').value) || state.fondoEmergencia.mesesObjetivo;
+    const gastoMensual = parseFloat(document.getElementById('cfg-gasto').value) || state.fondoEmergencia.gastoMensual;
+    const necesidades = parseFloat(document.getElementById('cfg-nec').value) || 0;
+    const deseos = parseFloat(document.getElementById('cfg-des').value) || 0;
+    const ahorro = parseFloat(document.getElementById('cfg-aho').value) || 0;
+
+    btn.disabled = true;
+    try {
+      await Promise.all([
+        apiFetch('/config', {
+          method: 'PUT',
+          body: JSON.stringify({ tasaSofipoDefault: tasaSofipoDefault, distribucion: { necesidades: necesidades, deseos: deseos, ahorro: ahorro } })
+        }),
+        apiFetch('/fondo-emergencia', {
+          method: 'PUT',
+          body: JSON.stringify({ mesesObjetivo: mesesObjetivo, gastoMensual: gastoMensual })
+        })
+      ]);
+      await refresh();
+      toast('Configuración guardada');
+    } catch (err) {
+      toast(err.message || 'No se pudo guardar la configuración');
+    } finally {
+      btn.disabled = false;
+    }
   });
   document.getElementById('btn-logout').addEventListener('click', function () {
-    setSession(false);
+    setToken(null);
+    state = defaultState();
     document.getElementById('screen-main').hidden = true;
     document.getElementById('screen-login').hidden = false;
     document.getElementById('input-user').value = '';
@@ -150,20 +160,35 @@ function initConfig() {
 }
 
 /* ---------------- LOGIN ---------------- */
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('input-user').value.trim();
   const p = document.getElementById('input-pass').value;
   const err = document.getElementById('login-error');
-  if (u === CREDENTIALS.user && p === CREDENTIALS.pass) {
-    setSession(true);
+  const btn = document.getElementById('btn-login');
+  if (!u || !p) {
+    err.textContent = 'Escribe tu usuario y contraseña';
+    return;
+  }
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+  try {
+    const data = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: u, password: p })
+    });
+    setToken(data.token);
+    await loadState();
     document.getElementById('screen-login').hidden = true;
     document.getElementById('screen-main').hidden = false;
-    err.textContent = '';
     showView('inicio');
-  } else {
-    err.textContent = 'Usuario o contraseña incorrectos';
+  } catch (e) {
+    err.textContent = e.message || 'Usuario o contraseña incorrectos';
     const card = document.getElementById('login-card');
     card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar al sistema';
   }
 }
 function initLogin() {
@@ -173,18 +198,24 @@ function initLogin() {
 
 /* ---------------- INIT ---------------- */
 (async function init() {
-  await loadState();
   initLogin();
   initNavigation();
   initFab();
   initConfig();
   initSaldo();
   startQuoteTicker();
-  renderAll();
 
-  if (hasActiveSession()) {
-    document.getElementById('screen-login').hidden = true;
-    document.getElementById('screen-main').hidden = false;
-    showView('inicio');
+  // Si ya había una sesión (token guardado), intenta entrar directo sin
+  // pedir login otra vez. Si el token ya venció o es inválido, regresa
+  // a la pantalla de login normalmente.
+  if (getToken()) {
+    try {
+      await loadState();
+      document.getElementById('screen-login').hidden = true;
+      document.getElementById('screen-main').hidden = false;
+      showView('inicio');
+    } catch (e) {
+      setToken(null);
+    }
   }
 })();

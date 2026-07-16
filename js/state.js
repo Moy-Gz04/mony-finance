@@ -1,14 +1,17 @@
 /* ==================================================================
    NEXUSFIN · STATE
    ------------------------------------------------------------------
-   Modelo de datos, persistencia y utilidades compartidas.
-   Hoy guarda todo en localStorage; cuando conectemos Neo4j + Render,
-   solo hay que reemplazar loadState()/saveState() por llamadas a la
-   API — el resto de la app no debería tener que cambiar.
+   Modelo de datos + cliente de la API (Node/Express + Postgres en
+   Render/Neon). Ya no se guarda nada de dinero en localStorage — solo
+   el token de sesión, para no pedir login cada vez que abres la app.
    ================================================================== */
 
-const STORAGE_KEY = 'nexusfin-state-v1';
-const CREDENTIALS = { user: 'Moy', pass: '1234' };
+/* ⚠️ Cuando despliegues el backend en Render, cambia esta URL por la
+   tuya real, ej. 'https://nexusfin-server-xxxx.onrender.com/api'.
+   Mientras pruebas en tu máquina, deja la de localhost. */
+const API_BASE = 'https://mony-finance.onrender.com/api';
+
+const TOKEN_KEY = 'nexusfin-token';
 
 /* Iconos SVG tipo "outline", en la misma línea visual que el resto de la
    interfaz (stroke-width 1.7, sin relleno, esquinas redondeadas). Se
@@ -40,7 +43,7 @@ const CATEGORIAS = [
 const GRUPO_NECESIDAD = ['alimentos', 'hogar', 'salud', 'transporte'];
 
 /* Métodos de pago: cada ingreso/gasto/inversión se liga a uno de estos,
-   y cada uno mueve el saldo correspondiente automáticamente. */
+   y el servidor mueve el saldo correspondiente automáticamente. */
 const METODOS_PAGO = [
   { id: 'efectivo', label: 'Efectivo' },
   { id: 'electronico', label: 'Tarjeta / dinero electrónico' }
@@ -48,16 +51,16 @@ const METODOS_PAGO = [
 
 function defaultState() {
   return {
-    saldo: { efectivo: 0, tarjeta: 15000 },
+    saldo: { efectivo: 0, tarjeta: 0 },
     ingresos: [],
     gastos: [],
     deudas: [],
     inversiones: [],
     metas: [],
     apuestas: [],
-    fondoEmergencia: { actual: 0, mesesObjetivo: 6, gastoMensual: 3000 },
+    fondoEmergencia: { actual: 0, mesesObjetivo: 6, gastoMensual: 6000 },
     config: {
-      tasaSofipoDefault: 10,
+      tasaSofipoDefault: 12,
       distribucion: { necesidades: 50, deseos: 30, ahorro: 20 },
       pagosPendientesColapsado: false
     }
@@ -68,49 +71,56 @@ let state = defaultState();
 let currentView = 'inicio';
 let currentSub = 'gastos';
 
-/* ---------- persistencia (localStorage por ahora) ---------- */
-async function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      state = Object.assign(defaultState(), parsed);
-      // Migración: versiones anteriores guardaban un solo campo "liquido".
-      // Si no existe el nuevo objeto "saldo", lo reconstruimos a partir de él
-      // (todo el dinero previo se asume como saldo en tarjeta).
-      if (!parsed.saldo) {
-        const previo = Number(parsed.liquido) || 0;
-        state.saldo = { efectivo: 0, tarjeta: previo };
-      } else {
-        state.saldo = {
-          efectivo: Number(parsed.saldo.efectivo) || 0,
-          tarjeta: Number(parsed.saldo.tarjeta) || 0
-        };
-      }
-      delete state.liquido;
-      if (!state.config.distribucion) state.config.distribucion = defaultState().config.distribucion;
-      if (state.config.pagosPendientesColapsado == null) state.config.pagosPendientesColapsado = false;
-      if (!Array.isArray(state.apuestas)) state.apuestas = [];
-      // Migración: antes el "Monto total" de una deuda nunca bajaba al ir
-      // pagando cuotas. Ahora cada deuda lleva su propio saldo pendiente.
-      state.deudas.forEach(function (d) {
-        if (d.montoPendiente == null) {
-          const pagos = d.tipo === 'unico' ? (d.pagada ? 1 : 0) : (d.pagosRealizados || 0);
-          d.montoPendiente = Math.max(0, Number(d.montoTotal || 0) - pagos * Number(d.montoCuota || 0));
-        }
-      });
-    }
-  } catch (e) {
-    console.warn('No se pudo cargar el estado guardado', e);
-  }
+/* ---------- sesión (token JWT) ---------- */
+function getToken() { return localStorage.getItem(TOKEN_KEY); }
+function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
 }
-let saveTimer = null;
-function saveState() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(function () {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-    catch (e) { console.error('Error guardando estado', e); }
-  }, 200);
+
+/* ---------- cliente de la API ----------
+   Todas las llamadas pasan por aquí: agrega el token, arma el JSON,
+   y convierte errores HTTP en excepciones de JS con el mensaje que
+   mandó el servidor (para poder mostrarlo directo en un toast). */
+async function apiFetch(path, options) {
+  options = options || {};
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+  const token = getToken();
+  if (token) headers.Authorization = 'Bearer ' + token;
+
+  let res;
+  try {
+    res = await fetch(API_BASE + path, Object.assign({}, options, { headers }));
+  } catch (networkErr) {
+    throw new Error('No se pudo conectar con el servidor. Revisa tu internet o si el backend está despierto.');
+  }
+
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* respuesta sin cuerpo, ej. en algunos 204 */ }
+
+  if (!res.ok) {
+    const err = new Error((data && data.error) || 'Error del servidor (' + res.status + ')');
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+/* Trae TODO el estado del usuario desde el servidor y reemplaza el
+   objeto state en memoria. Se llama al iniciar sesión y después de
+   cada acción que cambia datos, para que la app siempre muestre
+   exactamente lo que hay guardado en la base de datos. */
+async function loadState() {
+  const data = await apiFetch('/estado');
+  state = Object.assign(defaultState(), data);
+  if (!state.config.distribucion) state.config.distribucion = defaultState().config.distribucion;
+}
+
+/* Vuelve a pedir el estado completo y repinta la pantalla. Se usa
+   después de cualquier crear/editar/eliminar. */
+async function refresh() {
+  await loadState();
+  renderAll();
 }
 
 /* ---------- helpers ---------- */
@@ -169,17 +179,7 @@ function renderStars(container, score, size) {
   }
 }
 
-/* ---------- saldo (efectivo + tarjeta = patrimonio líquido) ----------
-   Todo movimiento de dinero pasa por aquí para que el saldo se ajuste
-   solo: los ingresos lo aumentan, los gastos y las inversiones lo
-   disminuyen. 'metodo' es 'efectivo' o 'electronico' (electronico
-   siempre mueve el saldo de tarjeta). */
-function metodoKey(metodo) { return metodo === 'efectivo' ? 'efectivo' : 'tarjeta'; }
-function ajustarSaldo(metodo, delta) {
-  if (!state.saldo) state.saldo = { efectivo: 0, tarjeta: 0 };
-  const key = metodoKey(metodo);
-  state.saldo[key] = (Number(state.saldo[key]) || 0) + Number(delta || 0);
-}
+/* Total en efectivo + tarjeta, leído del último estado cargado. */
 function saldoTotal() {
   if (!state.saldo) return 0;
   return (Number(state.saldo.efectivo) || 0) + (Number(state.saldo.tarjeta) || 0);
@@ -189,63 +189,25 @@ function metodoLabel(metodo) {
   return m ? m.label : 'Efectivo';
 }
 
-/* Deshace en el saldo lo que una apuesta haya movido, sin importar su
-   estado actual — se usa al eliminar un registro de apuesta. */
-function revertApuestaSaldo(a) {
-  ajustarSaldo('electronico', Number(a.montoApostado) || 0);
-  if (a.estado === 'ganada' && a.montoGanado) {
-    ajustarSaldo('electronico', -Number(a.montoGanado));
-  }
-}
-
 /* Frases sobre finanzas personales, en tono libre (no cita textual),
    atribuidas a quien las inspiró. Rotan solas en la pantalla de Inicio. */
 const QUOTES_FINANZAS = [
-  { texto: 'El dinero es un excelente empleado, pero un terrible jefe.', autor: 'Anónimo' },
   { texto: 'No ahorres lo que te sobra después de gastar; gasta lo que te sobra después de ahorrar.', autor: 'Warren Buffett' },
-  { texto: 'Cada peso que inviertes hoy puede convertirse en cientos mañana si le das tiempo.', autor: 'Anónimo' },
   { texto: 'Un peso ahorrado, bien visto, es un peso que ya ganaste dos veces.', autor: 'Benjamin Franklin' },
-  { texto: 'La riqueza no se construye gastando menos un día, sino tomando mejores decisiones durante años.', autor: 'Anónimo' },
   { texto: 'No trabajes solo por dinero: aprende a hacer que el dinero trabaje para ti.', autor: 'Robert Kiyosaki' },
-  { texto: 'Invertir no es hacerse rico rápido; es evitar seguir siendo pobre lentamente.', autor: 'Anónimo' },
   { texto: 'Antes de comprar algo, pregúntate si ese gasto te acerca o te aleja de tus metas.', autor: 'Suze Orman' },
-  { texto: 'El interés compuesto recompensa más la paciencia que la inteligencia.', autor: 'Anónimo' },
   { texto: 'No importa tanto cuánto ganas, sino cuánto logras conservar de lo que ganas.', autor: 'T. Harv Eker' },
-  { texto: 'Quien controla sus gastos controla una parte importante de su futuro.', autor: 'Anónimo' },
   { texto: 'Vive hoy como pocos quieren vivir, para poder vivir mañana como pocos pueden.', autor: 'Dave Ramsey' },
-  { texto: 'No necesitas ganar más para empezar a invertir; necesitas empezar.', autor: 'Anónimo' },
   { texto: 'El riesgo más grande viene de no saber bien en qué estás gastando tu dinero.', autor: 'Warren Buffett' },
-  { texto: 'El mejor momento para invertir fue ayer. El segundo mejor es cuando estés preparado.', autor: 'Anónimo' },
   { texto: 'La primera regla para acumular riqueza es simple: no gastes más de lo que necesitas.', autor: 'Charlie Munger' },
-  { texto: 'Cada compra es un voto por la vida financiera que tendrás mañana.', autor: 'Anónimo' },
   { texto: 'Una parte de todo lo que ganas siempre debería quedarse contigo primero.', autor: 'George S. Clason' },
-  { texto: 'La libertad financiera nace cuando tus activos trabajan más que tú.', autor: 'Anónimo' },
   { texto: 'Los ricos compran activos; el resto compra cosas que cree que son activos.', autor: 'Robert Kiyosaki' },
-  { texto: 'El ahorro protege tu presente; la inversión construye tu futuro.', autor: 'Anónimo' },
   { texto: 'Nunca dependas de un solo ingreso: busca cómo construir una segunda fuente.', autor: 'Warren Buffett' },
-  { texto: 'No persigas dinero. Construye valor y el dinero tendrá razones para seguirte.', autor: 'Anónimo' },
   { texto: 'Cuidado con los gastos pequeños: una fuga chiquita puede hundir un barco grande.', autor: 'Benjamin Franklin' },
-  { texto: 'El patrimonio crece cuando dejas de impresionar a otros y empiezas a invertir en ti.', autor: 'Anónimo' },
   { texto: 'Antes de invertir en algo, primero entiende de verdad en qué estás invirtiendo.', autor: 'Phil Town' },
-  { texto: 'Las pequeñas inversiones constantes suelen vencer a los grandes impulsos.', autor: 'Anónimo' },
   { texto: 'El dinero es una herramienta para vivir mejor, no un fin en sí mismo.', autor: 'Ramit Sethi' },
-  { texto: 'La paciencia es una habilidad financiera tan importante como saber calcular.', autor: 'Anónimo' },
   { texto: 'Un presupuesto te dice, con anticipación, a dónde va a ir tu dinero.', autor: 'John C. Maxwell' },
-  { texto: 'Las oportunidades favorecen a quien tiene liquidez y preparación.', autor: 'Anónimo' },
-  { texto: 'La disciplina de hoy con tu dinero es la libertad de mañana.', autor: 'Napoleon Hill' },
-  { texto: 'No midas tu éxito por lo que ganas, sino por lo que conservas y haces crecer.', autor: 'Anónimo' },
-  { texto: 'El tiempo es el socio silencioso de toda buena inversión.', autor: 'Anónimo' },
-  { texto: 'Invertir en conocimiento suele ofrecer el mejor rendimiento.', autor: 'Anónimo' },
-  { texto: 'Quien entiende el riesgo toma mejores decisiones que quien solo busca ganancias.', autor: 'Anónimo' },
-  { texto: 'Las deudas consumen ingresos; los activos los generan.', autor: 'Anónimo' },
-  { texto: 'El dinero multiplica los hábitos que ya tienes.', autor: 'Anónimo' },
-  { texto: 'Las decisiones financieras pequeñas, repetidas todos los días, construyen grandes fortunas.', autor: 'Anónimo' },
-  { texto: 'No esperes la oportunidad perfecta. Empieza con lo que tienes y mejora en el camino.', autor: 'Anónimo' },
-  { texto: 'Tu mejor inversión siempre será aquella que entiendes completamente.', autor: 'Anónimo' },
-  { texto: 'La riqueza es el resultado de decisiones consistentes, no de golpes de suerte.', autor: 'Anónimo' },
-  { texto: 'Cada peso tiene una misión. Dale una antes de que desaparezca.', autor: 'Anónimo' },
-  { texto: 'Las ganancias rápidas llaman la atención; las ganancias constantes construyen patrimonio.', autor: 'Anónimo' },
-  { texto: 'La educación financiera paga dividendos durante toda la vida.', autor: 'Anónimo' }
+  { texto: 'La disciplina de hoy con tu dinero es la libertad de mañana.', autor: 'Napoleon Hill' }
 ];
 
 /* mapea el 'tone' neutro del evaluador a un color de la paleta */

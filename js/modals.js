@@ -2,9 +2,13 @@
    NEXUSFIN · MODALS
    ------------------------------------------------------------------
    Sistema de hojas modales + todos los formularios de "agregar/ver
-   detalle". El asistente de compra inteligente (startWizard) es la
-   única parte que habla con PurchaseEvaluator: arma la UI a partir
-   de las preguntas que el motor le entrega para cada categoría.
+   detalle". Cada acción llama a la API (apiFetch, de state.js) y
+   termina con refresh(), que vuelve a pedir el estado completo al
+   servidor y repinta — así la app siempre muestra exactamente lo que
+   quedó guardado en la base de datos, sin cálculos duplicados aquí.
+
+   El asistente de compra inteligente (startWizard) sigue siendo la
+   única parte que habla con PurchaseEvaluator.
    ================================================================== */
 
 function openModal(innerHtml, opts) {
@@ -24,6 +28,23 @@ function openModal(innerHtml, opts) {
   overlay.querySelector('.sheet-close').addEventListener('click', close);
   overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
   return { overlay: overlay, close: close };
+}
+
+/* Deshabilita un botón mientras corre una petición async, y lo
+   regresa a su texto original al terminar (éxito o error). Evita
+   doble-clicks que dupliquen un registro. */
+async function withLoading(btn, fn) {
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    await fn();
+  } catch (err) {
+    toast(err.message || 'Algo salió mal, intenta de nuevo');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 }
 
 /* ================= GASTOS ================= */
@@ -70,9 +91,14 @@ function openAddGasto() {
   }
   document.getElementById('g-directo').addEventListener('click', function () {
     const d = collect(); if (!d) return;
-    state.gastos.push({ id: uid(), descripcion: d.desc, categoria: d.cat, monto: d.monto, fecha: d.fecha, metodo: d.metodo, rating: null, evaluacion: null });
-    ajustarSaldo(d.metodo, -d.monto);
-    saveState(); renderAll(); m.close(); toast('Gasto registrado');
+    const btn = this;
+    withLoading(btn, async function () {
+      await apiFetch('/gastos', {
+        method: 'POST',
+        body: JSON.stringify({ descripcion: d.desc, categoria: d.cat, monto: d.monto, fecha: d.fecha, metodo: d.metodo })
+      });
+      await refresh(); m.close(); toast('Gasto registrado');
+    });
   });
   document.getElementById('g-evaluar').addEventListener('click', function () {
     const d = collect(); if (!d) return;
@@ -187,14 +213,18 @@ function startWizard(gastoDraft) {
       toast('Buena decisión — ese dinero sigue siendo tuyo 👍');
     });
     document.getElementById('wiz-continuar').addEventListener('click', function () {
-      state.gastos.push({
-        id: uid(), descripcion: gastoDraft.desc, categoria: gastoDraft.cat, monto: gastoDraft.monto,
-        fecha: gastoDraft.fecha, metodo: gastoDraft.metodo, rating: result.score,
-        evaluacion: { tone: result.tone, label: result.label, respuestas: answers }
+      withLoading(this, async function () {
+        await apiFetch('/gastos', {
+          method: 'POST',
+          body: JSON.stringify({
+            descripcion: gastoDraft.desc, categoria: gastoDraft.cat, monto: gastoDraft.monto,
+            fecha: gastoDraft.fecha, metodo: gastoDraft.metodo, rating: result.score,
+            evaluacion: { tone: result.tone, label: result.label, respuestas: answers }
+          })
+        });
+        await refresh(); m.close();
+        toast('Compra evaluada y guardada · ' + result.score.toFixed(1) + '★');
       });
-      ajustarSaldo(gastoDraft.metodo, -gastoDraft.monto);
-      saveState(); renderAll(); m.close();
-      toast('Compra evaluada y guardada · ' + result.score.toFixed(1) + '★');
     });
   }
 }
@@ -213,9 +243,10 @@ function openGastoDetalle(id) {
     '<div class="hint">Al eliminar, el monto se regresa a tu saldo ' + (g.metodo === 'efectivo' ? 'en efectivo' : 'de tarjeta') + '.</div>'
   );
   document.getElementById('del-gasto').addEventListener('click', function () {
-    state.gastos = state.gastos.filter(function (x) { return x.id !== id; });
-    ajustarSaldo(g.metodo, g.monto);
-    saveState(); renderAll(); m.close(); toast('Gasto eliminado');
+    withLoading(this, async function () {
+      await apiFetch('/gastos/' + id, { method: 'DELETE' });
+      await refresh(); m.close(); toast('Gasto eliminado');
+    });
   });
 }
 
@@ -258,9 +289,13 @@ function openAddIngreso() {
     const monto = parseFloat(document.getElementById('i-monto').value);
     const fecha = document.getElementById('i-fecha').value || todayISO();
     if (!nombre || isNaN(monto) || monto <= 0) { toast('Completa concepto y monto'); return; }
-    state.ingresos.push({ id: uid(), nombre: nombre, monto: monto, frecuencia: freq, fecha: fecha, metodo: metodo });
-    ajustarSaldo(metodo, monto);
-    saveState(); renderAll(); m.close(); toast('Ingreso registrado');
+    withLoading(this, async function () {
+      await apiFetch('/ingresos', {
+        method: 'POST',
+        body: JSON.stringify({ nombre: nombre, monto: monto, frecuencia: freq, fecha: fecha, metodo: metodo })
+      });
+      await refresh(); m.close(); toast('Ingreso registrado');
+    });
   });
 }
 function deleteIngreso(id) {
@@ -273,9 +308,10 @@ function deleteIngreso(id) {
   );
   document.getElementById('cancel-i').addEventListener('click', m.close);
   document.getElementById('confirm-i').addEventListener('click', function () {
-    state.ingresos = state.ingresos.filter(function (i) { return i.id !== id; });
-    if (ing) ajustarSaldo(ing.metodo, -ing.monto);
-    saveState(); renderAll(); m.close(); toast('Ingreso eliminado');
+    withLoading(this, async function () {
+      await apiFetch('/ingresos/' + id, { method: 'DELETE' });
+      await refresh(); m.close(); toast('Ingreso eliminado');
+    });
   });
 }
 
@@ -318,11 +354,13 @@ function openAddDeuda() {
     const duracion = tipo === 'unico' ? 1 : (parseInt(duracionRaw, 10) || 0);
     if (!nombre || isNaN(total) || total <= 0 || isNaN(cuota) || cuota <= 0) { toast('Completa todos los campos'); return; }
     if (tipo !== 'unico' && duracion <= 0) { toast('Indica en cuántos pagos la vas a liquidar'); return; }
-    state.deudas.push({
-      id: uid(), nombre: nombre, montoTotal: total, montoPendiente: total, montoCuota: cuota, tipo: tipo,
-      proximoPago: fecha, pagada: false, duracion: duracion, pagosRealizados: 0
+    withLoading(this, async function () {
+      await apiFetch('/deudas', {
+        method: 'POST',
+        body: JSON.stringify({ nombre: nombre, montoTotal: total, montoCuota: cuota, tipo: tipo, proximoPago: fecha, duracion: duracion })
+      });
+      await refresh(); m.close(); toast('Deuda registrada — te avisaremos antes de que venza');
     });
-    saveState(); renderAll(); m.close(); toast('Deuda registrada — te avisaremos antes de que venza');
   });
 }
 function openDeudaDetalle(id) {
@@ -358,28 +396,20 @@ function openDeudaDetalle(id) {
       });
     });
     document.getElementById('d-pagar').addEventListener('click', function () {
-      const montoPagado = d.montoCuota;
-      if (d.tipo === 'unico') {
-        d.pagada = true;
-        d.montoPendiente = 0;
-      } else {
-        d.pagosRealizados = (d.pagosRealizados || 0) + 1;
-        d.montoPendiente = Math.max(0, Number(d.montoPendiente) - Number(d.montoCuota));
-        if ((d.duracion && d.pagosRealizados >= d.duracion) || d.montoPendiente <= 0) {
-          d.pagada = true;
-          d.montoPendiente = 0;
-        } else {
-          d.proximoPago = d.tipo === 'mensual' ? addMonths(d.proximoPago, 1) : addDays(d.proximoPago, 15);
-        }
-      }
-      ajustarSaldo(metodoPago, -montoPagado);
-      saveState(); renderAll(); m.close();
-      toast(d.pagada ? '¡Deuda liquidada por completo! 🎉' : '¡Pago registrado! Quedan ' + money(d.montoPendiente));
+      withLoading(this, async function () {
+        const actualizada = await apiFetch('/deudas/' + id + '/pagar', {
+          method: 'POST', body: JSON.stringify({ metodo: metodoPago })
+        });
+        await refresh(); m.close();
+        toast(actualizada.pagada ? '¡Deuda liquidada por completo! 🎉' : '¡Pago registrado! Quedan ' + money(actualizada.montoPendiente));
+      });
     });
   }
   document.getElementById('d-del').addEventListener('click', function () {
-    state.deudas = state.deudas.filter(function (x) { return x.id !== id; });
-    saveState(); renderAll(); m.close(); toast('Deuda eliminada');
+    withLoading(this, async function () {
+      await apiFetch('/deudas/' + id, { method: 'DELETE' });
+      await refresh(); m.close(); toast('Deuda eliminada');
+    });
   });
 }
 
@@ -398,9 +428,13 @@ function openAddApuesta() {
     const monto = parseFloat(document.getElementById('ap2-monto').value);
     const fecha = document.getElementById('ap2-fecha').value || todayISO();
     if (!desc || isNaN(monto) || monto <= 0) { toast('Completa la descripción y el monto'); return; }
-    state.apuestas.push({ id: uid(), descripcion: desc, montoApostado: monto, fecha: fecha, estado: 'pendiente', montoGanado: null });
-    ajustarSaldo('electronico', -monto);
-    saveState(); renderAll(); m.close(); toast('Apuesta registrada');
+    withLoading(this, async function () {
+      await apiFetch('/apuestas', {
+        method: 'POST',
+        body: JSON.stringify({ descripcion: desc, montoApostado: monto, fecha: fecha })
+      });
+      await refresh(); m.close(); toast('Apuesta registrada');
+    });
   });
 }
 
@@ -419,9 +453,10 @@ function openApuestaDetalle(id) {
   function renderDeleteOnly() {
     actions.innerHTML = '<div class="btn-row" style="margin-top:14px;"><button class="btn-ghost btn-danger" id="apu-del" style="flex:1">Eliminar registro</button></div>';
     document.getElementById('apu-del').addEventListener('click', function () {
-      revertApuestaSaldo(a);
-      state.apuestas = state.apuestas.filter(function (x) { return x.id !== id; });
-      saveState(); renderAll(); m.close(); toast('Apuesta eliminada');
+      withLoading(this, async function () {
+        await apiFetch('/apuestas/' + id, { method: 'DELETE' });
+        await refresh(); m.close(); toast('Apuesta eliminada');
+      });
     });
   }
 
@@ -434,8 +469,10 @@ function openApuestaDetalle(id) {
       '<div class="btn-row" style="margin-top:10px;"><button class="btn-ghost btn-danger" id="apu-del" style="flex:1">Eliminar registro</button></div>';
 
     document.getElementById('apu-perder').addEventListener('click', function () {
-      a.estado = 'perdida';
-      saveState(); renderAll(); m.close(); toast('Apuesta marcada como perdida');
+      withLoading(this, async function () {
+        await apiFetch('/apuestas/' + id + '/resolver', { method: 'POST', body: JSON.stringify({ estado: 'perdida' }) });
+        await refresh(); m.close(); toast('Apuesta marcada como perdida');
+      });
     });
     document.getElementById('apu-ganar').addEventListener('click', function () {
       actions.innerHTML =
@@ -445,16 +482,19 @@ function openApuestaDetalle(id) {
       document.getElementById('apu-confirmar-ganada').addEventListener('click', function () {
         const monto = parseFloat(document.getElementById('apu-monto-ganado').value);
         if (isNaN(monto) || monto < 0) { toast('Ingresa un monto válido'); return; }
-        a.estado = 'ganada';
-        a.montoGanado = monto;
-        ajustarSaldo('electronico', monto);
-        saveState(); renderAll(); m.close(); toast('¡Apuesta ganada! +' + money(monto));
+        withLoading(this, async function () {
+          await apiFetch('/apuestas/' + id + '/resolver', {
+            method: 'POST', body: JSON.stringify({ estado: 'ganada', montoGanado: monto })
+          });
+          await refresh(); m.close(); toast('¡Apuesta ganada! +' + money(monto));
+        });
       });
     });
     document.getElementById('apu-del').addEventListener('click', function () {
-      revertApuestaSaldo(a);
-      state.apuestas = state.apuestas.filter(function (x) { return x.id !== id; });
-      saveState(); renderAll(); m.close(); toast('Apuesta eliminada');
+      withLoading(this, async function () {
+        await apiFetch('/apuestas/' + id, { method: 'DELETE' });
+        await refresh(); m.close(); toast('Apuesta eliminada');
+      });
     });
   } else {
     renderDeleteOnly();
@@ -477,9 +517,10 @@ function openAddInversion() {
     const tasaRaw = document.getElementById('inv-tasa').value;
     const tasa = tasaRaw === '' ? null : parseFloat(tasaRaw);
     if (!nombre || isNaN(monto) || monto <= 0) { toast('Completa nombre y monto'); return; }
-    state.inversiones.push({ id: uid(), nombre: nombre, monto: monto, tasa: tasa });
-    ajustarSaldo('electronico', -monto);
-    saveState(); renderAll(); m.close(); toast('Inversión registrada — se descontó de tu saldo en tarjeta');
+    withLoading(this, async function () {
+      await apiFetch('/inversiones', { method: 'POST', body: JSON.stringify({ nombre: nombre, monto: monto, tasa: tasa }) });
+      await refresh(); m.close(); toast('Inversión registrada — se descontó de tu saldo en tarjeta');
+    });
   });
 }
 function openInversionDetalle(id) {
@@ -499,9 +540,10 @@ function openInversionDetalle(id) {
     '<div class="hint">Al eliminarla, el monto invertido regresa a tu saldo de tarjeta.</div>'
   );
   document.getElementById('inv-del').addEventListener('click', function () {
-    state.inversiones = state.inversiones.filter(function (x) { return x.id !== id; });
-    ajustarSaldo('electronico', i.monto);
-    saveState(); renderAll(); m.close(); toast('Inversión eliminada');
+    withLoading(this, async function () {
+      await apiFetch('/inversiones/' + id, { method: 'DELETE' });
+      await refresh(); m.close(); toast('Inversión eliminada');
+    });
   });
 }
 
@@ -520,8 +562,10 @@ function openAddMeta() {
     const objetivo = parseFloat(document.getElementById('meta-monto').value);
     const actual = parseFloat(document.getElementById('meta-actual').value) || 0;
     if (!nombre || isNaN(objetivo) || objetivo <= 0) { toast('Completa nombre y costo objetivo'); return; }
-    state.metas.push({ id: uid(), nombre: nombre, montoObjetivo: objetivo, montoActual: actual });
-    saveState(); renderMetas(); renderInicio(); m.close(); toast('Meta creada 🎯');
+    withLoading(this, async function () {
+      await apiFetch('/metas', { method: 'POST', body: JSON.stringify({ nombre: nombre, montoObjetivo: objetivo, montoActual: actual }) });
+      await refresh(); m.close(); toast('Meta creada 🎯');
+    });
   });
 }
 function openAportarMeta(id) {
@@ -550,9 +594,13 @@ function openAportarMeta(id) {
   document.getElementById('ap-save').addEventListener('click', function () {
     const monto = parseFloat(document.getElementById('ap-monto').value);
     if (isNaN(monto) || monto <= 0) { toast('Ingresa un monto válido'); return; }
-    meta.montoActual += monto;
-    if (document.getElementById('ap-descontar').checked) { ajustarSaldo(metodo, -monto); }
-    saveState(); renderAll(); m.close(); toast('¡Aportación guardada!');
+    const descontar = document.getElementById('ap-descontar').checked;
+    withLoading(this, async function () {
+      await apiFetch('/metas/' + id + '/aportar', {
+        method: 'POST', body: JSON.stringify({ monto: monto, metodo: metodo, descontar: descontar })
+      });
+      await refresh(); m.close(); toast('¡Aportación guardada!');
+    });
   });
 }
 function openMetaDetalle(id) {
@@ -565,10 +613,13 @@ function openMetaDetalle(id) {
     '<div class="btn-row"><button class="btn-ghost btn-danger" id="meta-del" style="flex:1">Eliminar meta</button></div>'
   );
   document.getElementById('meta-del').addEventListener('click', function () {
-    state.metas = state.metas.filter(function (x) { return x.id !== id; });
-    saveState(); renderAll(); m.close(); toast('Meta eliminada');
+    withLoading(this, async function () {
+      await apiFetch('/metas/' + id, { method: 'DELETE' });
+      await refresh(); m.close(); toast('Meta eliminada');
+    });
   });
 }
+
 /* ================= SALDO (efectivo / tarjeta) =================
    El saldo se mueve solo con cada ingreso, gasto e inversión. Este
    modal es solo para la configuración inicial o una corrección manual
@@ -585,9 +636,10 @@ function openEditLiquido() {
     const efectivo = parseFloat(document.getElementById('sal-efectivo').value);
     const tarjeta = parseFloat(document.getElementById('sal-tarjeta').value);
     if (isNaN(efectivo) || isNaN(tarjeta) || efectivo < 0 || tarjeta < 0) { toast('Ingresa montos válidos'); return; }
-    state.saldo.efectivo = efectivo;
-    state.saldo.tarjeta = tarjeta;
-    saveState(); renderAll(); m.close(); toast('Saldo actualizado');
+    withLoading(this, async function () {
+      await apiFetch('/saldo', { method: 'PUT', body: JSON.stringify({ efectivo: efectivo, tarjeta: tarjeta }) });
+      await refresh(); m.close(); toast('Saldo actualizado');
+    });
   });
 }
 
@@ -617,8 +669,12 @@ function openAportarFondo() {
   document.getElementById('fe-save').addEventListener('click', function () {
     const monto = parseFloat(document.getElementById('fe-monto').value);
     if (isNaN(monto) || monto <= 0) { toast('Ingresa un monto válido'); return; }
-    fe.actual += monto;
-    if (document.getElementById('fe-descontar').checked) { ajustarSaldo(metodo, -monto); }
-    saveState(); renderAll(); m.close(); toast('Fondo de emergencia actualizado');
+    const descontar = document.getElementById('fe-descontar').checked;
+    withLoading(this, async function () {
+      await apiFetch('/fondo-emergencia/aportar', {
+        method: 'POST', body: JSON.stringify({ monto: monto, metodo: metodo, descontar: descontar })
+      });
+      await refresh(); m.close(); toast('Fondo de emergencia actualizado');
+    });
   });
 }

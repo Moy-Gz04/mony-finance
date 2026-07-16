@@ -1,19 +1,21 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { METAS_COLS } = require('../sqlColumns');
 
 const router = express.Router();
 router.use(requireAuth);
 
 router.post('/', async (req, res) => {
-  const { nombre, montoObjetivo } = req.body || {};
+  const { nombre, montoObjetivo, montoActual } = req.body || {};
   if (!nombre || !montoObjetivo || montoObjetivo <= 0) {
     return res.status(400).json({ error: 'Datos incompletos o inválidos' });
   }
+  const inicial = montoActual && montoActual > 0 ? montoActual : 0;
   try {
     const result = await pool.query(
-      `INSERT INTO metas (user_id, nombre, monto_objetivo, monto_actual) VALUES ($1,$2,$3,0) RETURNING *`,
-      [req.userId, nombre, montoObjetivo]
+      `INSERT INTO metas (user_id, nombre, monto_objetivo, monto_actual) VALUES ($1,$2,$3,$4) RETURNING ${METAS_COLS}`,
+      [req.userId, nombre, montoObjetivo, inicial]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -30,7 +32,7 @@ router.post('/:id/aportar', async (req, res) => {
   try {
     await client.query('BEGIN');
     const upd = await client.query(
-      `UPDATE metas SET monto_actual = monto_actual + $1 WHERE id = $2 AND user_id = $3 RETURNING *`,
+      `UPDATE metas SET monto_actual = monto_actual + $1 WHERE id = $2 AND user_id = $3 RETURNING ${METAS_COLS}`,
       [monto, req.params.id, req.userId]
     );
     if (!upd.rows.length) {

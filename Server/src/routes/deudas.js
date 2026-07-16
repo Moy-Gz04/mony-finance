@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { DEUDAS_COLS } = require('../sqlColumns');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -16,7 +17,7 @@ router.post('/', async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO deudas (user_id, nombre, monto_total, monto_pendiente, monto_cuota, tipo, proximo_pago, duracion, pagos_realizados)
-       VALUES ($1,$2,$3,$3,$4,$5,$6,$7,0) RETURNING *`,
+       VALUES ($1,$2,$3,$3,$4,$5,$6,$7,0) RETURNING ${DEUDAS_COLS}`,
       [req.userId, nombre, montoTotal, montoCuota, tipo, proximoPago, tipo === 'unico' ? 1 : duracion]
     );
     res.status(201).json(result.rows[0]);
@@ -74,7 +75,7 @@ router.post('/:id/pagar', async (req, res) => {
 
     const upd = await client.query(
       `UPDATE deudas SET pagos_realizados = $1, monto_pendiente = $2, pagada = $3, proximo_pago = $4
-       WHERE id = $5 RETURNING *`,
+       WHERE id = $5 RETURNING ${DEUDAS_COLS}`,
       [pagosRealizados, montoPendiente, pagada, proximoPago, d.id]
     );
 

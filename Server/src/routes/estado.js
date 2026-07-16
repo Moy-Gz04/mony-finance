@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { INGRESOS_COLS, GASTOS_COLS, DEUDAS_COLS, INVERSIONES_COLS, METAS_COLS, APUESTAS_COLS } = require('../sqlColumns');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -15,12 +16,12 @@ router.get('/', async (req, res) => {
       pool.query('SELECT efectivo, tarjeta FROM saldo WHERE user_id = $1', [userId]),
       pool.query('SELECT * FROM config WHERE user_id = $1', [userId]),
       pool.query('SELECT actual, meses_objetivo, gasto_mensual FROM fondo_emergencia WHERE user_id = $1', [userId]),
-      pool.query('SELECT * FROM ingresos WHERE user_id = $1 ORDER BY fecha DESC', [userId]),
-      pool.query('SELECT * FROM gastos WHERE user_id = $1 ORDER BY fecha DESC', [userId]),
-      pool.query('SELECT * FROM deudas WHERE user_id = $1 ORDER BY proximo_pago ASC', [userId]),
-      pool.query('SELECT * FROM inversiones WHERE user_id = $1', [userId]),
-      pool.query('SELECT * FROM metas WHERE user_id = $1', [userId]),
-      pool.query('SELECT * FROM apuestas WHERE user_id = $1 ORDER BY fecha DESC', [userId])
+      pool.query(`SELECT ${INGRESOS_COLS} FROM ingresos WHERE user_id = $1 ORDER BY fecha DESC`, [userId]),
+      pool.query(`SELECT ${GASTOS_COLS} FROM gastos WHERE user_id = $1 ORDER BY fecha DESC`, [userId]),
+      pool.query(`SELECT ${DEUDAS_COLS} FROM deudas WHERE user_id = $1 ORDER BY proximo_pago ASC`, [userId]),
+      pool.query(`SELECT ${INVERSIONES_COLS} FROM inversiones WHERE user_id = $1`, [userId]),
+      pool.query(`SELECT ${METAS_COLS} FROM metas WHERE user_id = $1`, [userId]),
+      pool.query(`SELECT ${APUESTAS_COLS} FROM apuestas WHERE user_id = $1 ORDER BY fecha DESC`, [userId])
     ]);
 
     const c = config.rows[0] || {};
@@ -29,18 +30,18 @@ router.get('/', async (req, res) => {
     res.json({
       saldo: saldo.rows[0] || { efectivo: 0, tarjeta: 0 },
       config: {
-        tasaSofipoDefault: c.tasa_sofipo_default,
+        tasaSofipoDefault: Number(c.tasa_sofipo_default),
         distribucion: {
-          necesidades: c.distribucion_necesidades,
-          deseos: c.distribucion_deseos,
-          ahorro: c.distribucion_ahorro
+          necesidades: Number(c.distribucion_necesidades),
+          deseos: Number(c.distribucion_deseos),
+          ahorro: Number(c.distribucion_ahorro)
         },
         pagosPendientesColapsado: c.pagos_pendientes_colapsado
       },
       fondoEmergencia: {
-        actual: f.actual,
-        mesesObjetivo: f.meses_objetivo,
-        gastoMensual: f.gasto_mensual
+        actual: Number(f.actual),
+        mesesObjetivo: Number(f.meses_objetivo),
+        gastoMensual: Number(f.gasto_mensual)
       },
       ingresos: ingresos.rows,
       gastos: gastos.rows,

@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { APUESTAS_COLS } = require('../sqlColumns');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -15,7 +16,7 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
     const ins = await client.query(
       `INSERT INTO apuestas (user_id, descripcion, monto_apostado, fecha, estado)
-       VALUES ($1,$2,$3,$4,'pendiente') RETURNING *`,
+       VALUES ($1,$2,$3,$4,'pendiente') RETURNING ${APUESTAS_COLS}`,
       [req.userId, descripcion, montoApostado, fecha]
     );
     await client.query(
@@ -58,7 +59,7 @@ router.post('/:id/resolver', async (req, res) => {
     }
 
     const upd = await client.query(
-      `UPDATE apuestas SET estado = $1, monto_ganado = $2 WHERE id = $3 RETURNING *`,
+      `UPDATE apuestas SET estado = $1, monto_ganado = $2 WHERE id = $3 RETURNING ${APUESTAS_COLS}`,
       [estado, estado === 'ganada' ? montoGanado : null, req.params.id]
     );
     if (estado === 'ganada') {
@@ -91,7 +92,6 @@ router.delete('/:id', async (req, res) => {
     }
     const a = found.rows[0];
     await client.query('DELETE FROM apuestas WHERE id = $1', [a.id]);
-    // Revierte lo que esta apuesta haya movido, sin importar su estado.
     await client.query(
       `UPDATE saldo SET tarjeta = tarjeta + $1, updated_at = now() WHERE user_id = $2`,
       [a.monto_apostado, req.userId]

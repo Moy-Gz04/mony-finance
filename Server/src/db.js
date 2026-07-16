@@ -14,6 +14,14 @@ const { Pool, types } = require('pg');
 // olvida envolver el valor en Number(...).
 types.setTypeParser(1700, (val) => (val === null ? null : parseFloat(val)));
 
+// Por defecto, node-postgres convierte las columnas DATE en un objeto
+// Date de JS con hora y zona horaria (ej. "2026-07-30T00:00:00.000Z").
+// Todo el front trabaja con fechas como texto plano "YYYY-MM-DD"
+// (fmtDate, addDays, addMonths, todayISO...), así que dejamos la
+// fecha tal cual la manda Postgres, sin convertirla — si no, queda
+// una fecha inválida al concatenarle la hora otra vez en el front.
+types.setTypeParser(1082, (val) => val);
+
 if (!process.env.DATABASE_URL) {
   console.error('Falta la variable de entorno DATABASE_URL. Revisa tu archivo .env');
   process.exit(1);

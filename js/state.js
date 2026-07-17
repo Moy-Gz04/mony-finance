@@ -101,8 +101,10 @@ async function apiFetch(path, options) {
   try { data = await res.json(); } catch (e) { /* respuesta sin cuerpo, ej. en algunos 204 */ }
 
   if (!res.ok) {
-    const err = new Error((data && data.error) || 'Error del servidor (' + res.status + ')');
+    const isFondosInsuficientes = data && data.error === 'fondos_insuficientes';
+    const err = new Error(isFondosInsuficientes ? 'Fondos insuficientes' : ((data && data.error) || 'Error del servidor (' + res.status + ')'));
     err.status = res.status;
+    err.data = data;
     throw err;
   }
   return data;

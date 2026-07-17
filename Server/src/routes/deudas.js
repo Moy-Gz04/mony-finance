@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { DEUDAS_COLS } = require('../sqlColumns');
+const { verificarFondos } = require('../validaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -50,6 +51,7 @@ router.post('/:id/pagar', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Esta deuda ya está liquidada' });
     }
+    await verificarFondos(client, req.userId, metodo, Number(d.monto_cuota));
 
     let pagosRealizados = d.pagos_realizados;
     let montoPendiente = Number(d.monto_pendiente);
@@ -81,7 +83,7 @@ router.post('/:id/pagar', async (req, res) => {
 
     const key = metodo === 'efectivo' ? 'efectivo' : 'tarjeta';
     await client.query(
-      `UPDATE saldo SET ${key} = GREATEST(0, ${key} - $1), updated_at = now() WHERE user_id = $2`,
+      `UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`,
       [d.monto_cuota, req.userId]
     );
 
@@ -89,6 +91,9 @@ router.post('/:id/pagar', async (req, res) => {
     res.json(upd.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err.tipo === 'fondos_insuficientes') {
+      return res.status(400).json({ error: 'fondos_insuficientes', metodo: err.metodo, disponible: err.disponible, requerido: err.requerido, faltante: err.faltante });
+    }
     console.error(err);
     res.status(500).json({ error: 'Error del servidor' });
   } finally {

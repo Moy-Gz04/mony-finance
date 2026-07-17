@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { APUESTAS_COLS } = require('../sqlColumns');
+const { verificarFondos } = require('../validaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -14,19 +15,23 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await verificarFondos(client, req.userId, 'electronico', montoApostado);
     const ins = await client.query(
       `INSERT INTO apuestas (user_id, descripcion, monto_apostado, fecha, estado)
        VALUES ($1,$2,$3,$4,'pendiente') RETURNING ${APUESTAS_COLS}`,
       [req.userId, descripcion, montoApostado, fecha]
     );
     await client.query(
-      `UPDATE saldo SET tarjeta = GREATEST(0, tarjeta - $1), updated_at = now() WHERE user_id = $2`,
+      `UPDATE saldo SET tarjeta = tarjeta - $1, updated_at = now() WHERE user_id = $2`,
       [montoApostado, req.userId]
     );
     await client.query('COMMIT');
     res.status(201).json(ins.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err.tipo === 'fondos_insuficientes') {
+      return res.status(400).json({ error: 'fondos_insuficientes', metodo: err.metodo, disponible: err.disponible, requerido: err.requerido, faltante: err.faltante });
+    }
     console.error(err);
     res.status(500).json({ error: 'Error del servidor' });
   } finally {

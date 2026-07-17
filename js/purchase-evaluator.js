@@ -584,26 +584,33 @@
       const w = q.weight || 1;
       weightedSum += score * w;
       weightTotal += w;
-      breakdown.push({ id: q.id, text: q.text, score: score, weight: w });
+      let respuesta = null;
+      if (q.type === 'stars') {
+        respuesta = score.toFixed(1) + '★';
+      } else if (q.type === 'options') {
+        const opt = q.options.find(function (o) { return o.score === score; });
+        respuesta = opt ? opt.label : null;
+      }
+      breakdown.push({ id: q.id, text: q.text, score: score, weight: w, respuesta: respuesta });
     });
 
     const factores = {};
 
     if (context.saldoActual != null && context.monto != null) {
       const f = evaluateImpactoSaldo(context.saldoActual, context.monto);
-      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_impacto_saldo', text: 'Qué tanto te aprieta este gasto con el saldo que tienes ahora', score: f.score, weight: f.weight }); factores.impactoSaldo = f; }
+      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_impacto_saldo', text: 'Qué tanto te aprieta este gasto con el saldo que tienes ahora', score: f.score, weight: f.weight, respuesta: 'Tu saldo quedaría en un nivel ' + f.nivel.replace(/_/g, ' ') }); factores.impactoSaldo = f; }
     }
     if (context.presupuestoMeta != null && context.monto != null) {
       const f = evaluateImpactoPresupuesto(context.presupuestoUsado, context.presupuestoMeta, context.monto);
-      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_impacto_presupuesto', text: 'Qué tanto compromete tu presupuesto del mes en esta categoría', score: f.score, weight: f.weight }); factores.impactoPresupuesto = f; }
+      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_impacto_presupuesto', text: 'Qué tanto compromete tu presupuesto del mes en esta categoría', score: f.score, weight: f.weight, respuesta: 'Tu presupuesto del mes queda ' + f.nivel.replace(/_/g, ' ') }); factores.impactoPresupuesto = f; }
     }
     if (context.deudasProximasTotal != null) {
       const f = evaluateDeudasProximas(context.deudasProximasTotal, context.saldoActual, context.monto);
-      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_deudas_proximas', text: 'Si comprarlo compromete pagar tus deudas próximas a vencer', score: f.score, weight: f.weight }); factores.deudasProximas = f; }
+      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_deudas_proximas', text: 'Si comprarlo compromete pagar tus deudas próximas a vencer', score: f.score, weight: f.weight, respuesta: f.nivel === 'compromete_pago' ? 'Sí lo compromete' : 'No lo compromete' }); factores.deudasProximas = f; }
     }
     if (context.arrepentimiento) {
       const f = evaluateArrepentimiento(context.arrepentimiento);
-      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_arrepentimiento', text: 'Tu historial real con compras de esta categoría', score: f.score, weight: f.weight }); factores.arrepentimiento = f; }
+      if (f) { weightedSum += f.score * f.weight; weightTotal += f.weight; breakdown.push({ id: '_arrepentimiento', text: 'Tu historial real con compras de esta categoría', score: f.score, weight: f.weight, respuesta: Math.round(f.pct * 100) + '% de arrepentimiento en ' + f.total + ' compras' }); factores.arrepentimiento = f; }
     }
 
     if (weightTotal === 0) return null;

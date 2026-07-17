@@ -40,11 +40,32 @@ async function withLoading(btn, fn) {
   try {
     await fn();
   } catch (err) {
-    toast(err.message || 'Algo salió mal, intenta de nuevo');
+    if (err.data && err.data.error === 'fondos_insuficientes') {
+      mostrarAlertaFondos(err.data);
+    } else {
+      toast(err.message || 'Algo salió mal, intenta de nuevo');
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = original;
   }
+}
+
+/* Alerta clara cuando un movimiento no puede completarse por falta de
+   saldo — misma vibra que la confirmación de cerrar sesión, en vez de
+   un toast que se mira y se olvida. */
+function mostrarAlertaFondos(data) {
+  const metodoTxt = data.metodo === 'efectivo' ? 'efectivo' : 'tarjeta / electrónico';
+  const m = openModal(
+    '<div class="sheet-title" style="color:var(--coral);">⚠️ Fondos insuficientes</div>' +
+    '<p style="font-size:13.5px; color:var(--text-dim); line-height:1.6; margin-bottom:14px;">Tu saldo en <b style="color:var(--text);">' + metodoTxt + '</b> es de <b style="color:var(--text);">' + money(data.disponible) + '</b>, y este movimiento necesita <b style="color:var(--text);">' + money(data.requerido) + '</b>.</p>' +
+    '<div class="reflexion-box" style="border-left-color:var(--coral); background:linear-gradient(155deg, rgba(255,79,112,0.12), rgba(255,255,255,0.02));">' +
+      'Te faltan <b>' + money(data.faltante) + '</b> para poder completarlo. Ajusta el monto, cambia el método de pago, o regresa cuando tengas el saldo.' +
+    '</div>' +
+    '<button class="btn-primary" id="cerrar-alerta-fondos" style="margin-top:18px;">Entendido</button>',
+    { center: true }
+  );
+  document.getElementById('cerrar-alerta-fondos').addEventListener('click', m.close);
 }
 
 /* ================= GASTOS ================= */
@@ -212,7 +233,22 @@ function startWizard(gastoDraft) {
     if (feo) {
       return 'Tu propia evaluación dice que esta no es de las compras más inteligentes ahorita. Tu saldo no se ve tan afectado, pero igual vale la pena pensarlo dos veces. ¿La confirmamos o mejor la dejamos pasar?';
     }
-    return 'Esta compra no compromete tu estabilidad financiera. ¿Confirmas que quieres seguir adelante?';
+    const genericos = [
+      'No hay ninguna alerta importante aquí — se ve como una decisión razonable. ¿Le damos para adelante?',
+      'Todo se ve en orden con tus finanzas para esta compra. ¿Confirmas que sigues adelante?',
+      'Nada aquí prende focos rojos. Al final tú decides — ¿confirmamos?',
+      'Esta compra no compromete tu estabilidad financiera. ¿Confirmas que quieres seguir adelante?'
+    ];
+    return genericos[Math.floor(Math.random() * genericos.length)];
+  }
+
+  /* De todo lo que se evaluó (tus respuestas + los factores automáticos),
+     encuentra lo que más ayudó y lo que más restó — para resaltar eso en
+     vez de aventar la lista completa de todo lo que respondiste. */
+  function puntosClave(breakdown) {
+    if (!breakdown || !breakdown.length) return { fuerte: null, debil: null };
+    const ordenado = breakdown.slice().sort(function (a, b) { return a.score - b.score; });
+    return { debil: ordenado[0], fuerte: ordenado[ordenado.length - 1] };
   }
 
   function finish() {
@@ -220,9 +256,21 @@ function startWizard(gastoDraft) {
     const restanteDespues = contexto.saldoActual - gastoDraft.monto;
     const body = document.getElementById('wiz-body');
     const color = toneColor(result.tone);
-    const breakdownHtml = result.breakdown.map(function (b) {
+    const { fuerte, debil } = puntosClave(result.breakdown);
+
+    function puntoHtml(icono, titulo, item) {
+      if (!item) return '';
+      return (
+        '<div class="kv" style="border:none; padding:10px 0 2px;">' +
+          '<span class="kv-label" style="font-weight:700; color:var(--text);">' + icono + ' ' + titulo + '</span>' +
+        '</div>' +
+        '<div class="hint" style="margin-top:0;">' + item.text + (item.respuesta ? ' — <i>"' + item.respuesta + '"</i>' : '') + '</div>'
+      );
+    }
+    const detalleCompletoHtml = result.breakdown.map(function (b) {
       return '<div class="result-breakdown-item"><span>' + b.text + '</span><span>' + b.score.toFixed(1) + '/5</span></div>';
     }).join('');
+
     body.innerHTML =
       '<div class="result-badge">' +
         '<div class="wiz-step-label">Resultado de tu evaluación</div>' +
@@ -231,13 +279,21 @@ function startWizard(gastoDraft) {
         '<div class="result-score">Puntaje: ' + result.score.toFixed(1) + ' / 5.0</div>' +
       '</div>' +
       '<div class="reflexion-box">' + buildReflexion(result, restanteDespues) + '</div>' +
-      '<div class="result-breakdown">' + breakdownHtml + '</div>' +
+      puntoHtml('👍', 'Lo que más jugó a tu favor', fuerte) +
+      puntoHtml('👎', 'Lo que más te resta', debil) +
+      '<button type="button" id="wiz-toggle-detalle" style="background:none; border:none; color:var(--text-faint); font-size:11.5px; text-decoration:underline; margin-top:14px; padding:0;">Ver el detalle completo de tus respuestas</button>' +
+      '<div class="result-breakdown" id="wiz-detalle-completo" hidden>' + detalleCompletoHtml + '</div>' +
       '<div class="wiz-q" style="font-size:14.5px; text-align:center; margin:20px 0 4px;">¿Estás seguro de hacer esta compra?</div>' +
       '<div class="btn-row" style="margin-top:8px;">' +
         '<button class="small-btn" id="wiz-cancelar" style="flex:1; padding:13px;">Mejor la cancelo</button>' +
         '<button class="small-btn primary" id="wiz-continuar" style="flex:1; padding:13px;">Sí, la compro</button>' +
       '</div>';
     renderStars(document.getElementById('result-stars'), result.score, 30);
+    document.getElementById('wiz-toggle-detalle').addEventListener('click', function () {
+      const det = document.getElementById('wiz-detalle-completo');
+      det.hidden = !det.hidden;
+      this.textContent = det.hidden ? 'Ver el detalle completo de tus respuestas' : 'Ocultar el detalle';
+    });
     document.getElementById('wiz-cancelar').addEventListener('click', function () {
       m.close();
       toast('Buena decisión — ese dinero sigue siendo tuyo 👍');

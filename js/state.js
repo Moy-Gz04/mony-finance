@@ -6,10 +6,10 @@
    el token de sesión, para no pedir login cada vez que abres la app.
    ================================================================== */
 
-/* ⚠️ Cuando despliegues el backend en Render, cambia esta URL por la
-   tuya real, ej. 'https://nexusfin-server-xxxx.onrender.com/api'.
-   Mientras pruebas en tu máquina, deja la de localhost. */
-const API_BASE = 'http://localhost:3000/api';
+/* URL de tu backend en Render. Si alguna vez pruebas en local con
+   npm start dentro de Server/, cambia esto temporalmente por
+   'http://localhost:3000/api' y regrésalo después. */
+const API_BASE = 'https://mony-finance.onrender.com/api';
 
 const TOKEN_KEY = 'nexusfin-token';
 
@@ -63,6 +63,7 @@ function defaultState() {
     config: {
       tasaSofipoDefault: 12,
       distribucion: { necesidades: 50, deseos: 20, ahorro: 10, inversion: 20 },
+      ingresoMensualFijo: 0,
       pagosPendientesColapsado: false
     }
   };

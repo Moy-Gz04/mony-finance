@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS config (
 -- Se agrega el % de Inversión como categoría propia del plan mensual.
 ALTER TABLE config ADD COLUMN IF NOT EXISTS distribucion_inversion NUMERIC(5,2) NOT NULL DEFAULT 20;
 
+-- Ingreso mensual fijo usado como base del plan de distribución (en
+-- vez de sumar los ingresos que hayas registrado ese mes — así el
+-- plan no depende de que captures cada pago como "ingreso").
+ALTER TABLE config ADD COLUMN IF NOT EXISTS ingreso_mensual_fijo NUMERIC(14,2) NOT NULL DEFAULT 0;
+
 -- ---------- Fondo de emergencia — 1 fila por usuario ----------
 CREATE TABLE IF NOT EXISTS fondo_emergencia (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

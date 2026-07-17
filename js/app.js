@@ -102,6 +102,7 @@ function fillConfigForm() {
   document.getElementById('cfg-tasa').value = state.config.tasaSofipoDefault;
   document.getElementById('cfg-meses').value = state.fondoEmergencia.mesesObjetivo;
   document.getElementById('cfg-gasto').value = state.fondoEmergencia.gastoMensual;
+  document.getElementById('cfg-ingreso-fijo').value = state.config.ingresoMensualFijo;
   document.getElementById('cfg-nec').value = state.config.distribucion.necesidades;
   document.getElementById('cfg-des').value = state.config.distribucion.deseos;
   document.getElementById('cfg-inv').value = state.config.distribucion.inversion;
@@ -131,13 +132,14 @@ function initConfig() {
     const deseos = parseFloat(document.getElementById('cfg-des').value) || 0;
     const inversion = parseFloat(document.getElementById('cfg-inv').value) || 0;
     const ahorro = parseFloat(document.getElementById('cfg-aho').value) || 0;
+    const ingresoMensualFijo = parseFloat(document.getElementById('cfg-ingreso-fijo').value) || 0;
 
     btn.disabled = true;
     try {
       await Promise.all([
         apiFetch('/config', {
           method: 'PUT',
-          body: JSON.stringify({ tasaSofipoDefault: tasaSofipoDefault, distribucion: { necesidades: necesidades, deseos: deseos, ahorro: ahorro, inversion: inversion } })
+          body: JSON.stringify({ tasaSofipoDefault: tasaSofipoDefault, distribucion: { necesidades: necesidades, deseos: deseos, ahorro: ahorro, inversion: inversion }, ingresoMensualFijo: ingresoMensualFijo })
         }),
         apiFetch('/fondo-emergencia', {
           method: 'PUT',

@@ -282,10 +282,7 @@ function cambiarMesPlan(delta) {
 function renderPlan() {
   const refDate = mesOffsetToDate(planMesOffset);
   const d = state.config.distribucion;
-
-  const ingresoMes = state.ingresos
-    .filter(function (i) { return mismoMes(i.fecha, refDate); })
-    .reduce(function (s, i) { return s + Number(i.monto || 0); }, 0);
+  const ingresoBase = Number(state.config.ingresoMensualFijo) || 0;
 
   const gastosMes = state.gastos.filter(function (g) { return mismoMes(g.fecha, refDate); });
   const usadoNecesidades = gastosMes
@@ -303,12 +300,14 @@ function renderPlan() {
     .filter(function (a) { return mismoMes(a.fecha, refDate); })
     .reduce(function (s, a) { return s + Number(a.monto || 0); }, 0);
 
-  const targetNec = ingresoMes * (d.necesidades / 100);
-  const targetDes = ingresoMes * (d.deseos / 100);
-  const targetInv = ingresoMes * (d.inversion / 100);
-  const targetFondo = ingresoMes * (d.ahorro / 100);
+  const targetNec = ingresoBase * (d.necesidades / 100);
+  const targetDes = ingresoBase * (d.deseos / 100);
+  const targetInv = ingresoBase * (d.inversion / 100);
+  const targetFondo = ingresoBase * (d.ahorro / 100);
 
-  function rowPlan(label, usado, target, color) {
+  /* Categorías de GASTO (Necesidades/Deseos): lo ideal es no pasarte
+     del tope. "Verde/neutral" mientras te alcance, rojo si te pasas. */
+  function rowGasto(label, usado, target, color) {
     const pct = target > 0 ? Math.min(100, (usado / target) * 100) : 0;
     const restante = target - usado;
     return (
@@ -327,6 +326,29 @@ function renderPlan() {
     );
   }
 
+  /* Categorías de META (Inversión/Fondo de emergencia): es al revés,
+     lo ideal es llegar o pasarte del monto. En rojo mientras no se
+     cumple, en verde/cian en cuanto se completa o se supera. */
+  function rowMeta(label, usado, target, color, verbo) {
+    const pct = target > 0 ? Math.min(100, (usado / target) * 100) : 0;
+    const diff = target - usado;
+    const cumplida = diff <= 0 && target > 0;
+    return (
+      '<div style="margin-bottom:18px;">' +
+        '<div class="kv" style="border:none; padding:0 0 6px;">' +
+          '<span class="kv-label">' + label + '</span>' +
+          '<span class="kv-value" style="font-size:12px;">' + money(usado) + ' / ' + money(target) + '</span>' +
+        '</div>' +
+        '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%; background:' + (cumplida ? 'linear-gradient(90deg,var(--cyan),#00b89a)' : color) + '"></div></div>' +
+        '<div class="hint" style="margin-top:5px; font-weight:700;">' +
+          (cumplida
+            ? '<span style="color:var(--cyan);">¡Superaste tu meta mensual' + (diff < 0 ? ' por ' + money(-diff) : '') + '! 🎉 Felicidades</span>'
+            : '<span style="color:var(--coral);">Te faltan ' + money(diff) + ' por ' + verbo + ' este mes</span>') +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">';
   const puedeAvanzar = planMesOffset < 0;
   const header =
@@ -336,12 +358,12 @@ function renderPlan() {
       '<button class="icon-btn" style="width:30px;height:30px;' + (puedeAvanzar ? '' : ' opacity:.3; pointer-events:none;') + '" onclick="cambiarMesPlan(1)">' + chev + '<path d="m9 6 6 6-6 6"/></svg></button>' +
     '</div>';
 
-  document.getElementById('plan-card').innerHTML = header + (ingresoMes <= 0
-    ? '<div class="empty"><b>Sin ingresos registrados este mes</b>Registra tu ingreso del mes para calcular tu plan de distribución.</div>'
-    : rowPlan('Necesidades (' + d.necesidades + '%)', usadoNecesidades, targetNec, 'linear-gradient(90deg,#5AA9FF,#00E6C3)') +
-      rowPlan('Deseos (' + d.deseos + '%)', usadoDeseos, targetDes, 'linear-gradient(90deg,#FF9F5A,#FF4F70)') +
-      rowPlan('Inversión (' + d.inversion + '%)', usadoInversion, targetInv, 'linear-gradient(90deg,#8B6BFF,#6a4fe0)') +
-      rowPlan('Fondo de emergencia (' + d.ahorro + '%)', usadoFondo, targetFondo, 'linear-gradient(90deg,#00E6C3,#00b89a)'));
+  document.getElementById('plan-card').innerHTML = header + (ingresoBase <= 0
+    ? '<div class="empty"><b>Configura tu ingreso mensual</b>Ve a Configuración → "Tu ingreso mensual fijo" para activar tu plan de distribución.</div>'
+    : rowGasto('Necesidades (' + d.necesidades + '%)', usadoNecesidades, targetNec, 'linear-gradient(90deg,#5AA9FF,#00E6C3)') +
+      rowGasto('Deseos (' + d.deseos + '%)', usadoDeseos, targetDes, 'linear-gradient(90deg,#FF9F5A,#FF4F70)') +
+      rowMeta('Inversión (' + d.inversion + '%)', usadoInversion, targetInv, 'linear-gradient(90deg,#8B6BFF,#6a4fe0)', 'invertir') +
+      rowMeta('Fondo de emergencia (' + d.ahorro + '%)', usadoFondo, targetFondo, 'linear-gradient(90deg,#8B6BFF,#6a4fe0)', 'ahorrar'));
 }
 
 /* ---------------- DEUDAS ---------------- */

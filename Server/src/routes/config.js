@@ -6,7 +6,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.put('/', async (req, res) => {
-  const { tasaSofipoDefault, distribucion, pagosPendientesColapsado } = req.body || {};
+  const { tasaSofipoDefault, distribucion, pagosPendientesColapsado, ingresoMensualFijo } = req.body || {};
   try {
     await pool.query(
       `UPDATE config SET
@@ -15,8 +15,9 @@ router.put('/', async (req, res) => {
          distribucion_deseos = COALESCE($3, distribucion_deseos),
          distribucion_ahorro = COALESCE($4, distribucion_ahorro),
          distribucion_inversion = COALESCE($5, distribucion_inversion),
-         pagos_pendientes_colapsado = COALESCE($6, pagos_pendientes_colapsado)
-       WHERE user_id = $7`,
+         pagos_pendientes_colapsado = COALESCE($6, pagos_pendientes_colapsado),
+         ingreso_mensual_fijo = COALESCE($7, ingreso_mensual_fijo)
+       WHERE user_id = $8`,
       [
         tasaSofipoDefault,
         distribucion ? distribucion.necesidades : null,
@@ -24,6 +25,7 @@ router.put('/', async (req, res) => {
         distribucion ? distribucion.ahorro : null,
         distribucion ? distribucion.inversion : null,
         pagosPendientesColapsado,
+        ingresoMensualFijo,
         req.userId
       ]
     );

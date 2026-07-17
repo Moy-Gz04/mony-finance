@@ -38,6 +38,7 @@ router.get('/', async (req, res) => {
           ahorro: Number(c.distribucion_ahorro),
           inversion: Number(c.distribucion_inversion)
         },
+        ingresoMensualFijo: Number(c.ingreso_mensual_fijo),
         pagosPendientesColapsado: c.pagos_pendientes_colapsado
       },
       fondoEmergencia: {

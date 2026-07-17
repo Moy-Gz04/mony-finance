@@ -12,7 +12,12 @@
 
 const INGRESOS_COLS = `id, nombre, monto, frecuencia, fecha, metodo`;
 
-const GASTOS_COLS = `id, descripcion, categoria, monto, fecha, metodo, rating, evaluacion`;
+const GASTOS_COLS = `
+  id, descripcion, categoria, monto, fecha, metodo, rating, evaluacion,
+  seguimiento_fecha AS "seguimientoFecha",
+  seguimiento_respuesta AS "seguimientoRespuesta",
+  seguimiento_hecho AS "seguimientoHecho"
+`;
 
 const DEUDAS_COLS = `
   id, nombre,

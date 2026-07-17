@@ -191,6 +191,67 @@ function metodoLabel(metodo) {
   return m ? m.label : 'Efectivo';
 }
 
+/* ---------- helpers para el asistente de compra inteligente ---------- */
+
+/* 'necesidades' o 'deseos', según la categoría del gasto. */
+function grupoDeGasto(categoria) {
+  return GRUPO_NECESIDAD.indexOf(categoria) !== -1 ? 'necesidades' : 'deseos';
+}
+
+/* Cuánto llevas gastado ESTE MES en el grupo (necesidades/deseos) de
+   esa categoría. */
+function usadoGrupoEsteMes(categoria) {
+  const grupo = grupoDeGasto(categoria);
+  const hoy = new Date();
+  return state.gastos
+    .filter(function (g) {
+      if (grupoDeGasto(g.categoria) !== grupo) return false;
+      const d = new Date(g.fecha + 'T00:00:00');
+      return d.getFullYear() === hoy.getFullYear() && d.getMonth() === hoy.getMonth();
+    })
+    .reduce(function (s, g) { return s + Number(g.monto || 0); }, 0);
+}
+
+/* Meta mensual (en pesos) para el grupo de esa categoría, según tu
+   ingreso mensual fijo y tus porcentajes configurados. */
+function targetGrupoMensual(categoria) {
+  const grupo = grupoDeGasto(categoria);
+  const base = Number(state.config.ingresoMensualFijo) || 0;
+  const pct = grupo === 'necesidades' ? state.config.distribucion.necesidades : state.config.distribucion.deseos;
+  return base * (pct / 100);
+}
+
+/* Suma de cuotas de deudas activas que vencen en los próximos `dias`
+   (por defecto 7), incluyendo las ya vencidas. */
+function deudasProximasTotal(dias) {
+  dias = dias || 7;
+  return state.deudas
+    .filter(function (d) { return !d.pagada && daysUntil(d.proximoPago) <= dias; })
+    .reduce(function (s, d) { return s + Number(d.montoCuota || 0); }, 0);
+}
+
+/* De tus compras evaluadas y con seguimiento ya respondido en esa
+   categoría, qué fracción terminó en "arrepentido". Regresa null si
+   hay muy pocos datos (menos de 3) para que el algoritmo no saque
+   conclusiones prematuras. */
+function tasaArrepentimiento(categoria) {
+  const conSeguimiento = state.gastos.filter(function (g) {
+    return g.categoria === categoria && g.seguimientoHecho && g.seguimientoRespuesta;
+  });
+  if (conSeguimiento.length < 3) return null;
+  const arrepentidas = conSeguimiento.filter(function (g) { return g.seguimientoRespuesta === 'arrepentido'; }).length;
+  return { pct: arrepentidas / conSeguimiento.length, total: conSeguimiento.length };
+}
+
+/* Gastos evaluados cuyo seguimiento (5 días después) ya toca
+   preguntarse y todavía no se ha respondido. */
+function gastosPendientesDeSeguimiento() {
+  const hoy = todayISO();
+  return state.gastos.filter(function (g) {
+    return g.rating != null && g.seguimientoFecha && !g.seguimientoHecho && g.seguimientoFecha <= hoy;
+  });
+}
+
 /* Frases sobre finanzas personales, en tono libre (no cita textual),
    atribuidas a quien las inspiró. Rotan solas en la pantalla de Inicio. */
 const QUOTES_FINANZAS = [

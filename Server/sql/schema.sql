@@ -144,3 +144,13 @@ CREATE TABLE IF NOT EXISTS apuestas (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_apuestas_user ON apuestas(user_id);
+
+-- ---------- Seguimiento post-compra ----------
+-- Para las compras que pasaron por el asistente de evaluación (tienen
+-- rating), unos días después la app pregunta si la persona sigue
+-- contenta con la decisión. Esto alimenta al propio evaluador: si una
+-- categoría acumula arrepentimiento, el algoritmo lo advierte.
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS seguimiento_fecha DATE;
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS seguimiento_respuesta TEXT
+  CHECK (seguimiento_respuesta IN ('contento','neutral','arrepentido'));
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS seguimiento_hecho BOOLEAN NOT NULL DEFAULT false;

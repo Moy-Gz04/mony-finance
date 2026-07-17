@@ -65,8 +65,10 @@ function openAddGasto() {
       '<button class="seg-opt active" data-m="electronico">Tarjeta / electrónico</button>' +
     '</div></div>' +
     '<div class="field"><label>Fecha</label><input type="date" id="g-fecha" value="' + todayISO() + '"></div>' +
-    '<button class="btn-primary" id="g-evaluar" style="background:linear-gradient(120deg,var(--violet),#6a4fe0); margin-bottom:10px;">✨ Evaluar si es una compra inteligente</button>' +
-    '<button class="btn-ghost" id="g-directo">Guardar sin evaluar</button>'
+    '<div class="btn-row" style="margin-top:4px; align-items:stretch;">' +
+      '<button class="btn-primary" id="g-evaluar" style="flex:1; width:auto; min-height:56px; display:flex; align-items:center; justify-content:center; font-size:12.5px; line-height:1.25; padding:10px 6px; background:linear-gradient(120deg,var(--violet),#6a4fe0);">Evaluar si es una compra inteligente</button>' +
+      '<button class="btn-primary" id="g-directo" style="flex:1; width:auto; min-height:56px; display:flex; align-items:center; justify-content:center; font-size:12.5px; line-height:1.25; padding:10px 6px; color:var(--violet); background:linear-gradient(120deg, rgba(139,107,255,0.18), rgba(106,79,224,0.18)); border:1px solid rgba(139,107,255,0.4); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:none;">Guardar sin evaluar</button>' +
+    '</div>'
   );
   m.overlay.querySelectorAll('.cat-opt').forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -113,7 +115,21 @@ function openAddGasto() {
    El wizard NO sabe nada de cómo se calculan los puntajes: solo
    pinta lo que el motor le da. */
 function startWizard(gastoDraft) {
-  const questions = PurchaseEvaluator.getQuestions(gastoDraft.cat);
+  // Contexto completo: se calcula una sola vez al abrir el asistente,
+  // con datos 100% reales de la app (no inventa nada). Con esto el
+  // cuestionario se adapta al tamaño de la compra, y el resultado
+  // final toma en cuenta presupuesto del mes, deudas próximas y tu
+  // historial real de arrepentimiento en esa categoría.
+  const contexto = {
+    descripcion: gastoDraft.desc,
+    saldoActual: saldoTotal(),
+    monto: gastoDraft.monto,
+    presupuestoUsado: usadoGrupoEsteMes(gastoDraft.cat),
+    presupuestoMeta: targetGrupoMensual(gastoDraft.cat),
+    deudasProximasTotal: deudasProximasTotal(7),
+    arrepentimiento: tasaArrepentimiento(gastoDraft.cat)
+  };
+  const questions = PurchaseEvaluator.getQuestions(gastoDraft.cat, contexto);
   const catMeta = catInfo(gastoDraft.cat);
   let step = 0;
   const answers = {};
@@ -164,19 +180,34 @@ function startWizard(gastoDraft) {
   }
 
   function buildReflexion(result, restanteDespues) {
-    const impacto = result.impactoSaldo;
+    const factores = result.factores || {};
+    const impacto = factores.impactoSaldo;
+    const presupuesto = factores.impactoPresupuesto;
+    const deudas = factores.deudasProximas;
+    const arrepentimiento = factores.arrepentimiento;
     const feo = result.tone === 'bad' || result.tone === 'avoid';
-    const aprieta = impacto && (impacto.nivel === 'critico' || impacto.nivel === 'muy_bajo');
+    const aprietaSaldo = impacto && (impacto.nivel === 'critico' || impacto.nivel === 'muy_bajo');
+    const excedePresupuesto = presupuesto && (presupuesto.nivel === 'excedido' || presupuesto.nivel === 'muy_excedido');
+    const comprometeDeudas = deudas && deudas.nivel === 'compromete_pago';
 
-    if (aprieta && feo) {
+    if (comprometeDeudas) {
+      return 'Tienes pagos por ' + money(deudas.deudasProximasTotal) + ' que vencen en los próximos días — si haces esta compra, no te va a alcanzar para cubrirlos. ¿Seguro que quieres arriesgarte, o mejor esperamos a que pases esos pagos?';
+    }
+    if (aprietaSaldo && feo) {
       return 'Con esta compra tu saldo quedaría en ' + money(Math.max(0, restanteDespues)) +
         (restanteDespues <= 0 ? ', prácticamente en ceros' : ', muy justo') +
         ' — y tú mismo la calificaste bajo. Tal vez valga más la pena esperarte tantito. ¿Le seguimos o la dejamos pendiente?';
     }
-    if (aprieta) {
+    if (aprietaSaldo) {
       return 'Ojo: después de esta compra tu saldo quedaría en ' + money(Math.max(0, restanteDespues)) +
         (restanteDespues <= 0 ? ', en números rojos.' : ', muy cerca de cero.') +
         ' ¿Estás seguro de que la quieres hacer ahora?';
+    }
+    if (excedePresupuesto) {
+      return 'Esta compra te haría pasarte del presupuesto que tienes planeado para esta categoría este mes (' + money(presupuesto.usadoConEsta) + ' de ' + money(presupuesto.meta) + '). No es el fin del mundo una vez, pero repetirlo seguido desajusta tu plan. ¿Continuamos?';
+    }
+    if (arrepentimiento && arrepentimiento.nivel === 'alto') {
+      return 'Dato real tuyo: de tus últimas ' + arrepentimiento.total + ' compras evaluadas en esta categoría, ' + Math.round(arrepentimiento.pct * 100) + '% terminaron en arrepentimiento según tu propio seguimiento. Nada más para que lo tengas presente. ¿Aun así la confirmamos?';
     }
     if (feo) {
       return 'Tu propia evaluación dice que esta no es de las compras más inteligentes ahorita. Tu saldo no se ve tan afectado, pero igual vale la pena pensarlo dos veces. ¿La confirmamos o mejor la dejamos pasar?';
@@ -185,9 +216,8 @@ function startWizard(gastoDraft) {
   }
 
   function finish() {
-    const saldoActual = saldoTotal();
-    const result = PurchaseEvaluator.evaluate(gastoDraft.cat, answers, { saldoActual: saldoActual, monto: gastoDraft.monto });
-    const restanteDespues = saldoActual - gastoDraft.monto;
+    const result = PurchaseEvaluator.evaluate(gastoDraft.cat, answers, contexto);
+    const restanteDespues = contexto.saldoActual - gastoDraft.monto;
     const body = document.getElementById('wiz-body');
     const color = toneColor(result.tone);
     const breakdownHtml = result.breakdown.map(function (b) {
@@ -239,6 +269,7 @@ function openGastoDetalle(id) {
     '<div class="kv"><span class="kv-label">Pagado con</span><span class="kv-value">' + (g.metodo === 'efectivo' ? 'Efectivo' : 'Tarjeta / electrónico') + '</span></div>' +
     '<div class="kv"><span class="kv-label">Fecha</span><span class="kv-value">' + fmtDate(g.fecha) + '</span></div>' +
     (g.rating != null ? '<div class="kv"><span class="kv-label">Evaluación</span><span class="kv-value">' + g.rating.toFixed(1) + '★ · ' + g.evaluacion.label + '</span></div>' : '') +
+    (g.seguimientoHecho ? '<div class="kv"><span class="kv-label">Seguimiento</span><span class="kv-value">' + ({ contento: '😄 Contento', neutral: '😐 Neutral', arrepentido: '😔 Arrepentido' }[g.seguimientoRespuesta] || '') + '</span></div>' : '') +
     '<div class="btn-row"><button class="btn-ghost btn-danger" id="del-gasto" style="flex:1">Eliminar registro</button></div>' +
     '<div class="hint">Al eliminar, el monto se regresa a tu saldo ' + (g.metodo === 'efectivo' ? 'en efectivo' : 'de tarjeta') + '.</div>'
   );
@@ -499,6 +530,42 @@ function openApuestaDetalle(id) {
   } else {
     renderDeleteOnly();
   }
+}
+
+/* ================= SEGUIMIENTO POST-COMPRA =================
+   5 días después de una compra evaluada, se le pregunta al usuario si
+   sigue contento con la decisión. La respuesta alimenta el factor de
+   "arrepentimiento histórico" del propio evaluador. */
+function openSeguimientoPrompt(gasto) {
+  const c = catInfo(gasto.categoria);
+  const m = openModal(
+    '<div class="sheet-title">¿Sigues contento con esta compra?</div>' +
+    '<div class="hint" style="margin-top:-8px; margin-bottom:16px;">Hace unos días compraste esto y la evaluaste con ' + Number(gasto.rating).toFixed(1) + '★. Cuéntanos qué tal te fue — así el asistente aprende de tus decisiones reales, no solo de tus respuestas.</div>' +
+    '<div class="row" style="pointer-events:none; margin-bottom:18px;">' +
+      '<div class="row-icon" style="background:' + c.color + '22; color:' + c.color + '">' + c.icon + '</div>' +
+      '<div class="row-body"><div class="row-title">' + escapeHtml(gasto.descripcion) + '</div><div class="row-sub">' + c.label + ' · ' + money(gasto.monto) + '</div></div>' +
+    '</div>' +
+    '<div class="opt-list">' +
+      '<button class="opt-btn" data-r="contento"><span>😄 Sí, fue una buena decisión</span></button>' +
+      '<button class="opt-btn" data-r="neutral"><span>😐 Me da igual, ni bien ni mal</span></button>' +
+      '<button class="opt-btn" data-r="arrepentido"><span>😔 La verdad me arrepentí</span></button>' +
+    '</div>',
+    { center: true }
+  );
+  m.overlay.querySelectorAll('.opt-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const respuesta = btn.dataset.r;
+      withLoading(btn, async function () {
+        await apiFetch('/gastos/' + gasto.id + '/seguimiento', {
+          method: 'POST', body: JSON.stringify({ respuesta: respuesta })
+        });
+        await refresh();
+        m.close();
+        toast('Gracias — eso ayuda a afinar tus próximas evaluaciones');
+        checkSeguimientosPendientes();
+      });
+    });
+  });
 }
 
 /* ================= INVERSIONES ================= */

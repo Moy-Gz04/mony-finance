@@ -29,10 +29,15 @@ CREATE TABLE IF NOT EXISTS config (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   tasa_sofipo_default NUMERIC(6,2) NOT NULL DEFAULT 12,
   distribucion_necesidades NUMERIC(5,2) NOT NULL DEFAULT 50,
-  distribucion_deseos NUMERIC(5,2) NOT NULL DEFAULT 30,
-  distribucion_ahorro NUMERIC(5,2) NOT NULL DEFAULT 20,
+  distribucion_deseos NUMERIC(5,2) NOT NULL DEFAULT 20,
+  distribucion_ahorro NUMERIC(5,2) NOT NULL DEFAULT 10,
   pagos_pendientes_colapsado BOOLEAN NOT NULL DEFAULT false
 );
+-- "distribucion_ahorro" ahora representa el % destinado al Fondo de
+-- Emergencia (se queda con este nombre de columna para no romper lo
+-- que ya existe; el front lo etiqueta como "Fondo de emergencia").
+-- Se agrega el % de Inversión como categoría propia del plan mensual.
+ALTER TABLE config ADD COLUMN IF NOT EXISTS distribucion_inversion NUMERIC(5,2) NOT NULL DEFAULT 20;
 
 -- ---------- Fondo de emergencia — 1 fila por usuario ----------
 CREATE TABLE IF NOT EXISTS fondo_emergencia (
@@ -41,6 +46,19 @@ CREATE TABLE IF NOT EXISTS fondo_emergencia (
   meses_objetivo NUMERIC(4,1) NOT NULL DEFAULT 6,
   gasto_mensual NUMERIC(14,2) NOT NULL DEFAULT 6000
 );
+
+-- ---------- Historial de aportaciones al fondo de emergencia ----------
+-- Antes solo se guardaba el total acumulado (fondo_emergencia.actual).
+-- Esta tabla registra cada aportación con su fecha, para poder saber
+-- cuánto se aportó en un mes específico (plan de distribución mensual).
+CREATE TABLE IF NOT EXISTS aportes_fondo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  monto NUMERIC(14,2) NOT NULL,
+  fecha DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_aportes_fondo_user ON aportes_fondo(user_id);
 
 -- ---------- Ingresos ----------
 CREATE TABLE IF NOT EXISTS ingresos (

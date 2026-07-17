@@ -26,7 +26,7 @@ const DEUDAS_COLS = `
   pagos_realizados AS "pagosRealizados"
 `;
 
-const INVERSIONES_COLS = `id, nombre, monto, tasa`;
+const INVERSIONES_COLS = `id, nombre, monto, tasa, created_at AS "creadaEn"`;
 
 const METAS_COLS = `
   id, nombre,
@@ -41,11 +41,14 @@ const APUESTAS_COLS = `
   monto_ganado AS "montoGanado"
 `;
 
+const APORTES_FONDO_COLS = `id, monto, fecha`;
+
 module.exports = {
   INGRESOS_COLS,
   GASTOS_COLS,
   DEUDAS_COLS,
   INVERSIONES_COLS,
   METAS_COLS,
-  APUESTAS_COLS
+  APUESTAS_COLS,
+  APORTES_FONDO_COLS
 };

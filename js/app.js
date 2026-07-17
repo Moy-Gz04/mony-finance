@@ -104,20 +104,22 @@ function fillConfigForm() {
   document.getElementById('cfg-gasto').value = state.fondoEmergencia.gastoMensual;
   document.getElementById('cfg-nec').value = state.config.distribucion.necesidades;
   document.getElementById('cfg-des').value = state.config.distribucion.deseos;
+  document.getElementById('cfg-inv').value = state.config.distribucion.inversion;
   document.getElementById('cfg-aho').value = state.config.distribucion.ahorro;
   updateSumHint();
 }
 function updateSumHint() {
   const n = parseFloat(document.getElementById('cfg-nec').value) || 0;
   const d = parseFloat(document.getElementById('cfg-des').value) || 0;
+  const i = parseFloat(document.getElementById('cfg-inv').value) || 0;
   const a = parseFloat(document.getElementById('cfg-aho').value) || 0;
-  const sum = n + d + a;
+  const sum = n + d + i + a;
   const hint = document.getElementById('cfg-sum-hint');
   hint.textContent = 'Suma actual: ' + sum + '%' + (sum !== 100 ? ' — lo ideal es que sume 100%' : ' ✓');
   hint.style.color = sum === 100 ? 'var(--cyan)' : 'var(--amber)';
 }
 function initConfig() {
-  ['cfg-nec', 'cfg-des', 'cfg-aho'].forEach(function (id) {
+  ['cfg-nec', 'cfg-des', 'cfg-inv', 'cfg-aho'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', updateSumHint);
   });
   document.getElementById('btn-save-config').addEventListener('click', async function () {
@@ -127,6 +129,7 @@ function initConfig() {
     const gastoMensual = parseFloat(document.getElementById('cfg-gasto').value) || state.fondoEmergencia.gastoMensual;
     const necesidades = parseFloat(document.getElementById('cfg-nec').value) || 0;
     const deseos = parseFloat(document.getElementById('cfg-des').value) || 0;
+    const inversion = parseFloat(document.getElementById('cfg-inv').value) || 0;
     const ahorro = parseFloat(document.getElementById('cfg-aho').value) || 0;
 
     btn.disabled = true;
@@ -134,7 +137,7 @@ function initConfig() {
       await Promise.all([
         apiFetch('/config', {
           method: 'PUT',
-          body: JSON.stringify({ tasaSofipoDefault: tasaSofipoDefault, distribucion: { necesidades: necesidades, deseos: deseos, ahorro: ahorro } })
+          body: JSON.stringify({ tasaSofipoDefault: tasaSofipoDefault, distribucion: { necesidades: necesidades, deseos: deseos, ahorro: ahorro, inversion: inversion } })
         }),
         apiFetch('/fondo-emergencia', {
           method: 'PUT',

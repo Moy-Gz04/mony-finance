@@ -9,7 +9,7 @@
 /* ⚠️ Cuando despliegues el backend en Render, cambia esta URL por la
    tuya real, ej. 'https://nexusfin-server-xxxx.onrender.com/api'.
    Mientras pruebas en tu máquina, deja la de localhost. */
-const API_BASE = 'https://mony-finance.onrender.com/api';
+const API_BASE = 'http://localhost:3000/api';
 
 const TOKEN_KEY = 'nexusfin-token';
 
@@ -58,10 +58,11 @@ function defaultState() {
     inversiones: [],
     metas: [],
     apuestas: [],
+    aportesFondo: [],
     fondoEmergencia: { actual: 0, mesesObjetivo: 6, gastoMensual: 6000 },
     config: {
       tasaSofipoDefault: 12,
-      distribucion: { necesidades: 50, deseos: 30, ahorro: 20 },
+      distribucion: { necesidades: 50, deseos: 20, ahorro: 10, inversion: 20 },
       pagosPendientesColapsado: false
     }
   };
@@ -192,68 +193,24 @@ function metodoLabel(metodo) {
 /* Frases sobre finanzas personales, en tono libre (no cita textual),
    atribuidas a quien las inspiró. Rotan solas en la pantalla de Inicio. */
 const QUOTES_FINANZAS = [
-  { texto: 'El dinero es un excelente empleado, pero un terrible jefe.', autor: 'Anónimo' },
   { texto: 'No ahorres lo que te sobra después de gastar; gasta lo que te sobra después de ahorrar.', autor: 'Warren Buffett' },
-
-  { texto: 'Cada peso que inviertes hoy puede convertirse en cientos mañana si le das tiempo.', autor: 'Anónimo' },
   { texto: 'Un peso ahorrado, bien visto, es un peso que ya ganaste dos veces.', autor: 'Benjamin Franklin' },
-
-  { texto: 'La riqueza no se construye gastando menos un día, sino tomando mejores decisiones durante años.', autor: 'Anónimo' },
   { texto: 'No trabajes solo por dinero: aprende a hacer que el dinero trabaje para ti.', autor: 'Robert Kiyosaki' },
-
-  { texto: 'Invertir no es hacerse rico rápido; es evitar seguir siendo pobre lentamente.', autor: 'Anónimo' },
   { texto: 'Antes de comprar algo, pregúntate si ese gasto te acerca o te aleja de tus metas.', autor: 'Suze Orman' },
-
-  { texto: 'El interés compuesto recompensa más la paciencia que la inteligencia.', autor: 'Anónimo' },
   { texto: 'No importa tanto cuánto ganas, sino cuánto logras conservar de lo que ganas.', autor: 'T. Harv Eker' },
-
-  { texto: 'Quien controla sus gastos controla una parte importante de su futuro.', autor: 'Anónimo' },
   { texto: 'Vive hoy como pocos quieren vivir, para poder vivir mañana como pocos pueden.', autor: 'Dave Ramsey' },
-
-  { texto: 'No necesitas ganar más para empezar a invertir; necesitas empezar.', autor: 'Anónimo' },
   { texto: 'El riesgo más grande viene de no saber bien en qué estás gastando tu dinero.', autor: 'Warren Buffett' },
-
-  { texto: 'El mejor momento para invertir fue ayer. El segundo mejor es cuando estés preparado.', autor: 'Anónimo' },
   { texto: 'La primera regla para acumular riqueza es simple: no gastes más de lo que necesitas.', autor: 'Charlie Munger' },
-
-  { texto: 'Cada compra es un voto por la vida financiera que tendrás mañana.', autor: 'Anónimo' },
   { texto: 'Una parte de todo lo que ganas siempre debería quedarse contigo primero.', autor: 'George S. Clason' },
-
-  { texto: 'La libertad financiera nace cuando tus activos trabajan más que tú.', autor: 'Anónimo' },
   { texto: 'Los ricos compran activos; el resto compra cosas que cree que son activos.', autor: 'Robert Kiyosaki' },
-
-  { texto: 'El ahorro protege tu presente; la inversión construye tu futuro.', autor: 'Anónimo' },
   { texto: 'Nunca dependas de un solo ingreso: busca cómo construir una segunda fuente.', autor: 'Warren Buffett' },
-
-  { texto: 'No persigas dinero. Construye valor y el dinero tendrá razones para seguirte.', autor: 'Anónimo' },
   { texto: 'Cuidado con los gastos pequeños: una fuga chiquita puede hundir un barco grande.', autor: 'Benjamin Franklin' },
-
-  { texto: 'El patrimonio crece cuando dejas de impresionar a otros y empiezas a invertir en ti.', autor: 'Anónimo' },
   { texto: 'Antes de invertir en algo, primero entiende de verdad en qué estás invirtiendo.', autor: 'Phil Town' },
-
-  { texto: 'Las pequeñas inversiones constantes suelen vencer a los grandes impulsos.', autor: 'Anónimo' },
   { texto: 'El dinero es una herramienta para vivir mejor, no un fin en sí mismo.', autor: 'Ramit Sethi' },
-
-  { texto: 'La paciencia es una habilidad financiera tan importante como saber calcular.', autor: 'Anónimo' },
   { texto: 'Un presupuesto te dice, con anticipación, a dónde va a ir tu dinero.', autor: 'John C. Maxwell' },
-
-  { texto: 'Las oportunidades favorecen a quien tiene liquidez y preparación.', autor: 'Anónimo' },
-  { texto: 'La disciplina de hoy con tu dinero es la libertad de mañana.', autor: 'Napoleon Hill' },
-
-  { texto: 'No midas tu éxito por lo que ganas, sino por lo que conservas y haces crecer.', autor: 'Anónimo' },
-  { texto: 'El tiempo es el socio silencioso de toda buena inversión.', autor: 'Anónimo' },
-  { texto: 'Invertir en conocimiento suele ofrecer el mejor rendimiento.', autor: 'Anónimo' },
-  { texto: 'Quien entiende el riesgo toma mejores decisiones que quien solo busca ganancias.', autor: 'Anónimo' },
-  { texto: 'Las deudas consumen ingresos; los activos los generan.', autor: 'Anónimo' },
-  { texto: 'El dinero multiplica los hábitos que ya tienes.', autor: 'Anónimo' },
-  { texto: 'Las decisiones financieras pequeñas, repetidas todos los días, construyen grandes fortunas.', autor: 'Anónimo' },
-  { texto: 'No esperes la oportunidad perfecta. Empieza con lo que tienes y mejora en el camino.', autor: 'Anónimo' },
-  { texto: 'Tu mejor inversión siempre será aquella que entiendes completamente.', autor: 'Anónimo' },
-  { texto: 'La riqueza es el resultado de decisiones consistentes, no de golpes de suerte.', autor: 'Anónimo' },
-  { texto: 'Cada peso tiene una misión. Dale una antes de que desaparezca.', autor: 'Anónimo' },
-  { texto: 'Las ganancias rápidas llaman la atención; las ganancias constantes construyen patrimonio.', autor: 'Anónimo' },
-  { texto: 'La educación financiera paga dividendos durante toda la vida.', autor: 'Anónimo' }
+  { texto: 'La disciplina de hoy con tu dinero es la libertad de mañana.', autor: 'Napoleon Hill' }
 ];
+
 /* mapea el 'tone' neutro del evaluador a un color de la paleta */
 function toneColor(tone) {
   return {

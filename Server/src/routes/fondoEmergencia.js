@@ -26,9 +26,11 @@ router.put('/', async (req, res) => {
   }
 });
 
-/* POST /api/fondo-emergencia/aportar  { monto, metodo, descontar } */
+/* POST /api/fondo-emergencia/aportar  { monto, metodo, descontar, fecha }
+   Suma al total acumulado Y deja un registro con fecha en aportes_fondo,
+   para poder saber cuánto se aportó en un mes específico (plan mensual). */
 router.post('/aportar', async (req, res) => {
-  const { monto, metodo, descontar } = req.body || {};
+  const { monto, metodo, descontar, fecha } = req.body || {};
   if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido' });
   const client = await pool.connect();
   try {
@@ -37,6 +39,10 @@ router.post('/aportar', async (req, res) => {
       `UPDATE fondo_emergencia SET actual = actual + $1 WHERE user_id = $2
        RETURNING actual, meses_objetivo AS "mesesObjetivo", gasto_mensual AS "gastoMensual"`,
       [monto, req.userId]
+    );
+    await client.query(
+      `INSERT INTO aportes_fondo (user_id, monto, fecha) VALUES ($1, $2, $3)`,
+      [req.userId, monto, fecha || new Date().toISOString().slice(0, 10)]
     );
     if (descontar) {
       const key = metodo === 'efectivo' ? 'efectivo' : 'tarjeta';

@@ -82,7 +82,9 @@ function renderInicio() {
       '<span class="kv-value">' + money(target) + '</span>' +
     '</div>' +
     '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%"></div></div>' +
-    '<div class="hint">' + money(fe.actual) + ' acumulados · ' + pct.toFixed(0) + '% de tu meta</div>' +
+    '<div class="hint">' + money(fe.actual) + ' acumulados · ' + pct.toFixed(0) + '% de tu meta' +
+      (fe.actual < target ? ' · faltan ' + money(target - fe.actual) : ' · ¡meta cumplida! 🎉') +
+    '</div>' +
     '<div class="btn-row" style="margin-top:14px;">' +
       '<button class="small-btn primary" style="flex:1" onclick="openAportarFondo()">Aportar al fondo</button>' +
     '</div>';
@@ -114,6 +116,105 @@ function debtRowHtml(d) {
   );
 }
 
+/* ---------------- RESUMEN MENSUAL DE GASTOS ---------------- */
+let gastosMesOffset = 0; // 0 = mes actual, -1 = mes anterior, etc. Nunca > 0 (no hay futuro).
+
+function mesOffsetToDate(offset) {
+  const d = new Date();
+  d.setDate(1); // evita saltos raros al cambiar de mes (ej. 31 de enero -1 mes)
+  d.setMonth(d.getMonth() + offset);
+  return d;
+}
+function mismoMes(fechaStr, refDate) {
+  const d = new Date(fechaStr + 'T00:00:00');
+  return d.getFullYear() === refDate.getFullYear() && d.getMonth() === refDate.getMonth();
+}
+function nombreMes(d) {
+  const s = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function cambiarMesGastos(delta) {
+  const nuevo = gastosMesOffset + delta;
+  if (nuevo > 0) return; // no dejar navegar a meses futuros
+  gastosMesOffset = nuevo;
+  renderGastosResumenMes();
+}
+
+function renderGastosResumenMes() {
+  const el = document.getElementById('gastos-resumen-mes');
+  if (!el) return;
+  const refDate = mesOffsetToDate(gastosMesOffset);
+  const gastosMes = state.gastos.filter(function (g) { return mismoMes(g.fecha, refDate); });
+  const total = gastosMes.reduce(function (s, g) { return s + Number(g.monto || 0); }, 0);
+
+  const porCategoria = {};
+  gastosMes.forEach(function (g) {
+    porCategoria[g.categoria] = (porCategoria[g.categoria] || 0) + Number(g.monto || 0);
+  });
+  const filas = Object.keys(porCategoria)
+    .map(function (catId) { return { cat: catInfo(catId), monto: porCategoria[catId] }; })
+    .sort(function (a, b) { return b.monto - a.monto; });
+
+  const catHtml = filas.length
+    ? filas.map(function (f) {
+        const pct = total > 0 ? (f.monto / total * 100) : 0;
+        return (
+          '<div style="margin-bottom:11px;">' +
+            '<div class="kv" style="border:none; padding:0 0 4px;">' +
+              '<span class="kv-label" style="display:flex; align-items:center; gap:7px; color:var(--text);">' +
+                '<span style="width:16px;height:16px; color:' + f.cat.color + '; display:inline-flex; flex-shrink:0;">' + f.cat.icon + '</span>' + f.cat.label +
+              '</span>' +
+              '<span class="kv-value" style="font-size:12.5px;">' + money(f.monto) + '</span>' +
+            '</div>' +
+            '<div class="pbar" style="height:5px; margin-top:0;"><div class="pbar-fill" style="width:' + pct + '%; background:' + f.cat.color + '"></div></div>' +
+          '</div>'
+        );
+      }).join('')
+    : '<div class="hint" style="text-align:center; padding:8px 0 4px;">Sin gastos registrados este mes.</div>';
+
+  // Comparativa de los últimos 6 meses (fija a partir de hoy, sin importar qué mes estés viendo arriba)
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = mesOffsetToDate(-i);
+    const t = state.gastos.filter(function (g) { return mismoMes(g.fecha, d); })
+      .reduce(function (s, g) { return s + Number(g.monto || 0); }, 0);
+    meses.push({ label: d.toLocaleDateString('es-MX', { month: 'short' }).replace('.', ''), total: t });
+  }
+  const maxMonto = Math.max.apply(null, meses.map(function (m) { return m.total; }).concat([1]));
+  const chartHtml = '<div style="display:flex; align-items:flex-end; gap:7px; height:64px;">' +
+    meses.map(function (m) {
+      const h = m.total > 0 ? Math.max(6, (m.total / maxMonto) * 100) : 2;
+      const esMax = m.total === maxMonto && m.total > 0;
+      return (
+        '<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:5px; height:100%;">' +
+          '<div style="width:100%; max-width:24px; height:' + h + '%; border-radius:6px 6px 3px 3px; background:' + (esMax ? 'linear-gradient(180deg,var(--coral),#c73a56)' : 'linear-gradient(180deg,var(--cyan),var(--violet))') + ';"></div>' +
+          '<span style="font-size:9px; color:' + (esMax ? 'var(--coral)' : 'var(--text-faint)') + '; font-weight:' + (esMax ? '800' : '600') + '; text-transform:capitalize;">' + m.label + '</span>' +
+        '</div>'
+      );
+    }).join('') +
+  '</div>';
+
+  const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">';
+  const puedeAvanzar = gastosMesOffset < 0;
+
+  el.innerHTML =
+    '<div class="card" style="padding:20px;">' +
+      '<div class="kv" style="border:none; padding:0 0 14px;">' +
+        '<button class="icon-btn" style="width:30px;height:30px;" onclick="cambiarMesGastos(-1)">' + chev + '<path d="m15 6-6 6 6 6"/></svg></button>' +
+        '<span style="font-weight:800; font-size:14px;">' + nombreMes(refDate) + '</span>' +
+        '<button class="icon-btn" style="width:30px;height:30px;' + (puedeAvanzar ? '' : ' opacity:.3; pointer-events:none;') + '" onclick="cambiarMesGastos(1)">' + chev + '<path d="m9 6 6 6-6 6"/></svg></button>' +
+      '</div>' +
+      catHtml +
+      '<div class="kv" style="border-top:1px solid var(--border); border-bottom:none; margin-top:2px; padding-top:12px;">' +
+        '<span class="kv-label" style="font-weight:700; color:var(--text);">Total del mes</span>' +
+        '<span class="kv-value" style="font-size:16.5px;">' + money(total) + '</span>' +
+      '</div>' +
+      '<div class="divider"></div>' +
+      '<div class="hero-label" style="margin-bottom:10px;">Comparativa · últimos 6 meses</div>' +
+      chartHtml +
+    '</div>';
+}
+
 /* ---------------- MOVIMIENTOS ---------------- */
 function renderMovimientos() {
   renderGastosList();
@@ -121,6 +222,7 @@ function renderMovimientos() {
   renderPlan();
 }
 function renderGastosList() {
+  renderGastosResumenMes();
   const list = document.getElementById('gastos-list');
   if (!state.gastos.length) {
     list.innerHTML = '<div class="empty"><b>Aún no registras gastos</b>Toca el botón + para agregar tu primera compra.</div>';
@@ -168,36 +270,78 @@ function renderIngresosList() {
     );
   }).join('');
 }
-function renderPlan() {
-  const totalIng = state.ingresos.reduce(function (s, i) { return s + Number(i.monto || 0); }, 0);
-  const d = state.config.distribucion;
-  const gastosPorGrupo = { necesidades: 0, deseos: 0 };
-  state.gastos.forEach(function (g) {
-    if (GRUPO_NECESIDAD.indexOf(g.categoria) !== -1) gastosPorGrupo.necesidades += Number(g.monto || 0);
-    else gastosPorGrupo.deseos += Number(g.monto || 0);
-  });
-  const targetNec = totalIng * (d.necesidades / 100);
-  const targetDes = totalIng * (d.deseos / 100);
-  const targetAho = totalIng * (d.ahorro / 100);
-  const ahorroReal = totalMetas() + state.fondoEmergencia.actual;
+let planMesOffset = 0; // mismo patrón que gastosMesOffset: 0 = mes actual
 
-  function rowPlan(label, real, target, color) {
-    const pct = target > 0 ? Math.min(100, (real / target) * 100) : 0;
+function cambiarMesPlan(delta) {
+  const nuevo = planMesOffset + delta;
+  if (nuevo > 0) return;
+  planMesOffset = nuevo;
+  renderPlan();
+}
+
+function renderPlan() {
+  const refDate = mesOffsetToDate(planMesOffset);
+  const d = state.config.distribucion;
+
+  const ingresoMes = state.ingresos
+    .filter(function (i) { return mismoMes(i.fecha, refDate); })
+    .reduce(function (s, i) { return s + Number(i.monto || 0); }, 0);
+
+  const gastosMes = state.gastos.filter(function (g) { return mismoMes(g.fecha, refDate); });
+  const usadoNecesidades = gastosMes
+    .filter(function (g) { return GRUPO_NECESIDAD.indexOf(g.categoria) !== -1; })
+    .reduce(function (s, g) { return s + Number(g.monto || 0); }, 0);
+  const usadoDeseos = gastosMes
+    .filter(function (g) { return GRUPO_NECESIDAD.indexOf(g.categoria) === -1; })
+    .reduce(function (s, g) { return s + Number(g.monto || 0); }, 0);
+
+  const usadoInversion = state.inversiones
+    .filter(function (i) { return i.creadaEn && mismoMes(i.creadaEn.slice(0, 10), refDate); })
+    .reduce(function (s, i) { return s + Number(i.monto || 0); }, 0);
+
+  const usadoFondo = (state.aportesFondo || [])
+    .filter(function (a) { return mismoMes(a.fecha, refDate); })
+    .reduce(function (s, a) { return s + Number(a.monto || 0); }, 0);
+
+  const targetNec = ingresoMes * (d.necesidades / 100);
+  const targetDes = ingresoMes * (d.deseos / 100);
+  const targetInv = ingresoMes * (d.inversion / 100);
+  const targetFondo = ingresoMes * (d.ahorro / 100);
+
+  function rowPlan(label, usado, target, color) {
+    const pct = target > 0 ? Math.min(100, (usado / target) * 100) : 0;
+    const restante = target - usado;
     return (
-      '<div style="margin-bottom:16px;">' +
+      '<div style="margin-bottom:18px;">' +
         '<div class="kv" style="border:none; padding:0 0 6px;">' +
           '<span class="kv-label">' + label + '</span>' +
-          '<span class="kv-value" style="font-size:12px;">' + money(real) + ' / ' + money(target) + '</span>' +
+          '<span class="kv-value" style="font-size:12px;">' + money(usado) + ' / ' + money(target) + '</span>' +
         '</div>' +
         '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%; background:' + color + '"></div></div>' +
+        '<div class="hint" style="margin-top:5px;">' +
+          (restante >= 0
+            ? 'Te quedan ' + money(restante) + ' disponibles en esta categoría'
+            : '<span style="color:var(--coral); font-weight:700;">Te pasaste por ' + money(-restante) + '</span>') +
+        '</div>' +
       '</div>'
     );
   }
-  document.getElementById('plan-card').innerHTML = totalIng <= 0
-    ? '<div class="empty"><b>Registra tus ingresos</b>Así podremos calcular tu plan de distribución 50/30/20 (o el que configures).</div>'
-    : rowPlan('Necesidades (' + d.necesidades + '%)', gastosPorGrupo.necesidades, targetNec, 'linear-gradient(90deg,#5AA9FF,#00E6C3)') +
-      rowPlan('Deseos (' + d.deseos + '%)', gastosPorGrupo.deseos, targetDes, 'linear-gradient(90deg,#FF9F5A,#FF4F70)') +
-      rowPlan('Ahorro / inversión (' + d.ahorro + '%)', ahorroReal, targetAho, 'linear-gradient(90deg,#8B6BFF,#00E6C3)');
+
+  const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">';
+  const puedeAvanzar = planMesOffset < 0;
+  const header =
+    '<div class="kv" style="border:none; padding:0 0 18px;">' +
+      '<button class="icon-btn" style="width:30px;height:30px;" onclick="cambiarMesPlan(-1)">' + chev + '<path d="m15 6-6 6 6 6"/></svg></button>' +
+      '<span style="font-weight:800; font-size:14px;">' + nombreMes(refDate) + '</span>' +
+      '<button class="icon-btn" style="width:30px;height:30px;' + (puedeAvanzar ? '' : ' opacity:.3; pointer-events:none;') + '" onclick="cambiarMesPlan(1)">' + chev + '<path d="m9 6 6 6-6 6"/></svg></button>' +
+    '</div>';
+
+  document.getElementById('plan-card').innerHTML = header + (ingresoMes <= 0
+    ? '<div class="empty"><b>Sin ingresos registrados este mes</b>Registra tu ingreso del mes para calcular tu plan de distribución.</div>'
+    : rowPlan('Necesidades (' + d.necesidades + '%)', usadoNecesidades, targetNec, 'linear-gradient(90deg,#5AA9FF,#00E6C3)') +
+      rowPlan('Deseos (' + d.deseos + '%)', usadoDeseos, targetDes, 'linear-gradient(90deg,#FF9F5A,#FF4F70)') +
+      rowPlan('Inversión (' + d.inversion + '%)', usadoInversion, targetInv, 'linear-gradient(90deg,#8B6BFF,#6a4fe0)') +
+      rowPlan('Fondo de emergencia (' + d.ahorro + '%)', usadoFondo, targetFondo, 'linear-gradient(90deg,#00E6C3,#00b89a)'));
 }
 
 /* ---------------- DEUDAS ---------------- */

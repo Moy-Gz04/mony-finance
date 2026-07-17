@@ -677,7 +677,7 @@ function openAportarFondo() {
     const descontar = document.getElementById('fe-descontar').checked;
     withLoading(this, async function () {
       await apiFetch('/fondo-emergencia/aportar', {
-        method: 'POST', body: JSON.stringify({ monto: monto, metodo: metodo, descontar: descontar })
+        method: 'POST', body: JSON.stringify({ monto: monto, metodo: metodo, descontar: descontar, fecha: todayISO() })
       });
       await refresh(); m.close(); toast('Fondo de emergencia actualizado');
     });

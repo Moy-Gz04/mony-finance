@@ -71,16 +71,23 @@
           </div>
         </div>
 
-        <div class="section-title">Tu mes</div>
-        <div class="card" id="home-resumen"></div>
+        <div class="card fold-card" id="home-resumen"></div>
 
-        <div class="card asesor-card">
-          <div class="asesor-head"><span class="asesor-ico">✦</span><div><b>¿Lo compro o no?</b><span>Te respondo con tus números reales</span></div></div>
+        <div class="card fold-card asesor-card">
+          <details class="fold" id="asesor-fold">
+            <summary>
+              <span class="asesor-ico">✦</span>
+              <div class="fold-txt"><b>¿Lo compro o no?</b><span class="fold-sub">Te respondo con tus números reales</span></div>
+              <svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="fold-body" style="padding-top:14px;">
           <textarea id="asesor-pregunta" rows="2" class="ia-input" placeholder="Ej. Quiero comprarme un perfume nuevo"></textarea>
           <div class="asesor-fila">
             <div class="ia-monto ia-monto-sm"><span>$</span><input type="number" id="asesor-precio" inputmode="decimal" min="0" placeholder="Precio" aria-label="Precio (opcional)"></div>
             <button class="btn-primary" id="btn-asesor">Preguntar</button>
           </div>
+            </div>
+          </details>
         </div>
 
         <div class="card rating-card">

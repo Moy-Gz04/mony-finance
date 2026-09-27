@@ -96,6 +96,7 @@ function suscripcionesMensual() {
   return (state.suscripciones || []).filter(function (s) { return s.activa; })
     .reduce(function (a, s) { return a + Number(s.monto) * (SUSC_POR_MES[s.frecuencia] || 1); }, 0);
 }
+let resumenAbierto = false; // "Tu mes" empieza plegado
 function renderResumenMes() {
   const el = document.getElementById('home-resumen');
   if (!el) return;
@@ -111,6 +112,11 @@ function renderResumenMes() {
     return '<div class="res-tile"><span>' + label + '</span><b class="' + (clase || '') + '">' + valor + '</b>' + (nota ? '<em>' + nota + '</em>' : '') + '</div>';
   }
   el.innerHTML =
+    '<details class="fold"' + (resumenAbierto ? ' open' : '') + ' ontoggle="resumenAbierto = this.open">' +
+      '<summary><div class="fold-txt"><b>Tu mes</b>' +
+        '<span class="fold-sub">Balance <b class="' + (balance < 0 ? 'neg' : 'pos') + '">' + (balance < 0 ? '−' : '') + money(Math.abs(balance)) + '</b> · gastos ' + money(gastos) + '</span></div>' +
+        '<svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>' +
+      '</summary><div class="fold-body" style="padding-top:14px;">' +
     '<div class="res-grid">' +
       tile('Ingresos', money(ingresos), 'este mes') +
       tile('Gastos', money(gastos), 'este mes') +
@@ -118,7 +124,7 @@ function renderResumenMes() {
       tile('Suscripciones', money(subs), proxSub ? 'próximo: ' + escapeHtml(proxSub.nombre) + ' ' + fmtDate(proxSub.proximoCobro) : 'al mes') +
       tile('Deudas', money(totalDeudas()), 'por pagar') +
       tile('Ahorrado', money(ahorro), 'fondo + metas + inversión') +
-    '</div>';
+    '</div></div></details>';
 }
 
 /* ---------------- SUSCRIPCIONES ---------------- */

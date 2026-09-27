@@ -401,3 +401,21 @@
 .tab-btn.active{color:#F0C063;}
 /* Logo plateado: letras delgadas, un poco más grande para que se lea */
 .brand-logo{height:36px; max-width:250px;}
+
+/* Logo v2: letras más gruesas, muy alargado */
+.brand-logo{height:auto; width:min(236px, 58vw); max-width:none;}
+
+/* Marca de agua: el murciélago fijo al centro, detrás de todo, apenas visible */
+.bat-marca{
+  position:fixed; z-index:-1; pointer-events:none;
+  top:50%; left:50%; transform:translate(-50%, -50%);
+  width:min(300px, 72vw); aspect-ratio:325 / 124;
+  background:url("../img/bat-marca.png") center / contain no-repeat;
+  opacity:.07;
+  filter:grayscale(1) brightness(1.4);
+}
+@media (prefers-reduced-transparency: reduce){ .bat-marca{display:none;} }
+@media (prefers-contrast: more){ .bat-marca{display:none;} }
+/* El murciélago va encima de la viñeta oscura (si no, casi no se ve) */
+#app::before, #app::after{z-index:-2;}
+.bat-marca{z-index:-1; opacity:.1;}

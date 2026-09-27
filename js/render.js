@@ -49,10 +49,12 @@ function renderInicio() {
     document.getElementById('rating-big').textContent = rating.avg.toFixed(1) + '★';
     document.getElementById('rating-count').textContent = rating.count + ' compra' + (rating.count === 1 ? '' : 's') + ' evaluada' + (rating.count === 1 ? '' : 's');
     renderStars(homeStars, rating.avg, 21);
+    document.getElementById('rating-mini').innerHTML = '<b class="pos">' + rating.avg.toFixed(1) + '★</b> · ' + rating.count + ' compra' + (rating.count === 1 ? '' : 's') + ' evaluada' + (rating.count === 1 ? '' : 's');
   } else {
     document.getElementById('rating-big').textContent = '—.—';
     document.getElementById('rating-count').textContent = 'Sin compras evaluadas aún';
     renderStars(homeStars, 0, 21);
+    document.getElementById('rating-mini').textContent = 'Sin compras evaluadas aún';
   }
 
   const list = document.getElementById('home-debts-list');

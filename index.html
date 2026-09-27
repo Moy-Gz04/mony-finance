@@ -90,13 +90,20 @@
           </details>
         </div>
 
-        <div class="card rating-card">
-          <div class="rating-left">
-            <div class="rating-title">Calificación de tus compras</div>
-            <div class="rating-big" id="rating-big">— .—</div>
-            <div class="rating-count" id="rating-count">Sin compras evaluadas aún</div>
-          </div>
-          <div class="stars" id="rating-stars-home"></div>
+        <div class="card fold-card">
+          <details class="fold">
+            <summary>
+              <div class="fold-txt"><b>Calificación de tus compras</b><span class="fold-sub" id="rating-mini">Sin compras evaluadas aún</span></div>
+              <svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="fold-body rating-card">
+              <div class="rating-left">
+                <div class="rating-big" id="rating-big">— .—</div>
+                <div class="rating-count" id="rating-count">Sin compras evaluadas aún</div>
+              </div>
+              <div class="stars" id="rating-stars-home"></div>
+            </div>
+          </details>
         </div>
 
         <div id="home-debts-header"></div>

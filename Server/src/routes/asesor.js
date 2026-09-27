@@ -17,7 +17,7 @@ router.use(requireAuth);
 
 const CATEGORIAS = ['alimentos', 'ropa', 'entretenimiento', 'tecnologia', 'pareja', 'transporte', 'salud', 'hogar', 'otros'];
 const VEREDICTOS = ['comprar', 'esperar', 'no_comprar'];
-const POR_MES = { semanal: 52 / 12, mensual: 1, anual: 1 / 12 };
+const POR_MES = { semanal: 52 / 12, quincenal: 2, mensual: 1, anual: 1 / 12 };
 const $ = (n) => '$' + Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 2 });
 const fecha = (d) => String(d).slice(0, 10);
 function enDias(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }

@@ -1109,7 +1109,7 @@ function formSuscripcion(s) {
   return '<div class="field"><label>Nombre</label><input type="text" id="su-nombre" placeholder="Ej. Spotify, Claude, Gym" value="' + escapeHtml(s.nombre) + '"></div>' +
     '<div class="field"><label>Costo (MXN)</label><input type="number" id="su-monto" inputmode="decimal" min="0" step="0.01" placeholder="0" value="' + (s.monto === '' ? '' : Number(s.monto)) + '"></div>' +
     '<div class="field"><label>¿Cada cuándo se cobra?</label><div class="seg" id="su-freq">' +
-      ['semanal', 'mensual', 'anual'].map(function (f) { return '<button class="seg-opt' + (s.frecuencia === f ? ' active' : '') + '" data-v="' + f + '">' + f.charAt(0).toUpperCase() + f.slice(1) + '</button>'; }).join('') +
+      ['semanal', 'quincenal', 'mensual', 'anual'].map(function (f) { return '<button class="seg-opt' + (s.frecuencia === f ? ' active' : '') + '" data-v="' + f + '">' + f.charAt(0).toUpperCase() + f.slice(1) + '</button>'; }).join('') +
     '</div></div>' +
     '<div class="field"><label>Próximo cobro</label><input type="date" id="su-fecha" value="' + String(s.proximoCobro).slice(0, 10) + '"></div>' +
     '<div class="field"><label>¿Con qué se paga?</label><div class="seg" id="su-metodo">' +

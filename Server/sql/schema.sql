@@ -216,3 +216,8 @@ CREATE TABLE IF NOT EXISTS suscripciones (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_suscripciones_user ON suscripciones(user_id);
+
+-- Frecuencia quincenal (cada 15 días) para suscripciones.
+ALTER TABLE suscripciones DROP CONSTRAINT IF EXISTS suscripciones_frecuencia_check;
+ALTER TABLE suscripciones ADD CONSTRAINT suscripciones_frecuencia_check
+  CHECK (frecuencia IN ('semanal','quincenal','mensual','anual'));

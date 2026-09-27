@@ -93,7 +93,7 @@ function renderInicio() {
 }
 
 /* ---------------- RESUMEN DEL MES (Inicio) ---------------- */
-const SUSC_POR_MES = { semanal: 52 / 12, mensual: 1, anual: 1 / 12 };
+const SUSC_POR_MES = { semanal: 52 / 12, quincenal: 2, mensual: 1, anual: 1 / 12 };
 function suscripcionesMensual() {
   return (state.suscripciones || []).filter(function (s) { return s.activa; })
     .reduce(function (a, s) { return a + Number(s.monto) * (SUSC_POR_MES[s.frecuencia] || 1); }, 0);
@@ -161,7 +161,7 @@ function renderSuscripciones() {
     else if (dias < 0) badge = '<span class="row-badge badge-urgent">Cobro pendiente</span>';
     else if (dias === 0) badge = '<span class="row-badge badge-urgent">Cobra hoy</span>';
     else if (dias <= 3) badge = '<span class="row-badge badge-soon">Cobra en ' + dias + (dias === 1 ? ' día' : ' días') + '</span>';
-    const freq = { semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual' }[s.frecuencia];
+    const freq = { semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual', anual: 'Anual' }[s.frecuencia];
     return '<div class="row' + (s.activa ? '' : ' row-off') + '" onclick="openSuscripcion(\'' + s.id + '\')">' +
       '<div class="row-icon" style="background:' + c.color + '22; color:' + c.color + ';">' + c.icon + '</div>' +
       '<div class="row-body"><div class="row-title">' + escapeHtml(s.nombre) + '</div>' +

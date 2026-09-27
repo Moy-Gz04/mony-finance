@@ -7,7 +7,7 @@ const { verificarFondos } = require('../validaciones');
 const router = express.Router();
 router.use(requireAuth);
 
-const FRECUENCIAS = ['semanal', 'mensual', 'anual'];
+const FRECUENCIAS = ['semanal', 'quincenal', 'mensual', 'anual'];
 const METODOS = ['efectivo', 'electronico'];
 const CATEGORIAS = ['alimentos', 'ropa', 'entretenimiento', 'tecnologia', 'pareja', 'transporte', 'salud', 'hogar', 'otros'];
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,6 +29,7 @@ function siguienteCobro(fecha, frecuencia) {
   const [y, m, d] = String(fecha).slice(0, 10).split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
   if (frecuencia === 'semanal') dt.setUTCDate(dt.getUTCDate() + 7);
+  else if (frecuencia === 'quincenal') dt.setUTCDate(dt.getUTCDate() + 15);
   else if (frecuencia === 'anual') dt.setUTCFullYear(dt.getUTCFullYear() + 1);
   else {
     // Mismo día del mes siguiente; si no existe (31 → febrero), el último día.

@@ -161,14 +161,25 @@ router.post('/gastos/registrar', async (req, res) => {
     const deudasProximas = Number(deudas.rows[0].total) || 0;
 
     const caja = { efectivo: Number(s.efectivo), electronico: Number(s.tarjeta) };
+    /* Números REALES de cada compra: saldo antes/después (del método y
+       total) y si todavía alcanza para las deudas de esta semana. Son la
+       base de la evaluación; el presupuesto mensual es solo referencia. */
+    const metricas = [];
     const lineas = compras.map((x, i) => {
       const antes = caja[x.metodo];
+      const totalAntes = caja.efectivo + caja.electronico;
       caja[x.metodo] -= x.monto;
+      const totalDespues = caja.efectivo + caja.electronico;
       const g = grupo(x.categoria);
       usado[g] += x.monto;
-      return `${i}. "${x.descripcion}" (${x.categoria}, grupo ${g}): ${$(x.monto)} con ${x.metodo === 'efectivo' ? 'efectivo' : 'tarjeta'}. ` +
-        `Tenía ${$(antes)} en ese método, le quedan ${$(antes - x.monto)}. ` +
-        `Con esta compra lleva ${$(usado[g])} de ${$(meta[g])} de su presupuesto mensual de ${g}.`;
+      const pctSaldo = totalAntes > 0 ? x.monto / totalAntes : 1;
+      const cubreDeudas = totalDespues >= deudasProximas;
+      metricas.push({ pctSaldo, cubreDeudas, grupo: g });
+      return `${i}. "${x.descripcion}" (${x.categoria}, grupo ${g}): ${$(x.monto)} con ${x.metodo === 'efectivo' ? 'efectivo' : 'tarjeta'}.\n` +
+        `   SALDO REAL: tenía ${$(antes)} en ${x.metodo === 'efectivo' ? 'efectivo' : 'tarjeta'} (${$(totalAntes)} en total); después le quedan ${$(caja[x.metodo])} (${$(totalDespues)} en total). ` +
+        `La compra se llevó el ${Math.round(pctSaldo * 100)}% de todo su dinero disponible.\n` +
+        `   DEUDAS: ${deudasProximas > 0 ? (cubreDeudas ? `después de la compra SÍ le alcanza para las deudas de esta semana (${$(deudasProximas)}).` : `después de la compra NO le alcanza para las deudas de esta semana (${$(deudasProximas)}); le faltarían ${$(deudasProximas - totalDespues)}.`) : 'no tiene deudas por vencer esta semana.'}\n` +
+        `   REFERENCIA (no es dinero disponible): plan mensual de ${g} ${$(meta[g])}, con esta compra lleva ${$(usado[g])}.`;
     });
     const faltante = Object.keys(caja).find((k) => caja[k] < -0.001);
     if (faltante) {
@@ -179,15 +190,19 @@ router.post('/gastos/registrar', async (req, res) => {
 
     const prompt = `Eres un asesor de finanzas personales en México. Califica cada compra que la persona YA hizo, según su situación real.
 ${texto ? `Lo que contó: """${texto}"""\n` : ''}
-Ingreso mensual fijo: ${$(base)}. Deudas que vencen en los próximos 7 días: ${$(deudasProximas)}.
+IMPORTANTE: lo que manda es el SALDO REAL (el dinero que de verdad tiene hoy) y si le alcanza para sus deudas. El "plan mensual" es un presupuesto teórico calculado de su ingreso: NO es dinero disponible, nunca lo describas como si lo tuviera.
 
 COMPRAS (en orden; el saldo ya descuenta las anteriores):
 ${lineas.join('\n')}
 
 Para CADA compra devuelve:
 - "i": su número.
-- "score": 1.0 a 5.0 (un decimal). 5 = compra muy inteligente, 1 = mala. Considera qué parte del saldo se llevó, si rebasa o deja al límite su presupuesto, si pone en riesgo pagar las deudas próximas, y si es necesidad o gusto. Algo necesario, pequeño frente al saldo y dentro del presupuesto merece 4 o más.
-- "razones": 1 o 2 frases cortas (máx. 18 palabras), en segunda persona, con números concretos de arriba. No inventes datos.`;
+- "score": 1.0 a 5.0 (un decimal). 5 = compra muy inteligente, 1 = mala. Criterios, en este orden de importancia:
+  1) Qué porcentaje de su dinero disponible real se llevó (más de 20% ya es mucho; más de 40% es grave).
+  2) Si después de la compra ya no le alcanza para las deudas de esta semana (eso la hace mala salvo que sea una necesidad real e inevitable).
+  3) Si es necesidad o gusto: un antojo, botana, refresco o dulce es GUSTO aunque sea comida.
+  4) Solo al final, si se pasa de su plan mensual.
+- "razones": 1 o 2 frases cortas (máx. 20 palabras), en segunda persona. La primera SIEMPRE con su saldo real (cuánto tenía o cuánto le queda y qué porcentaje se llevó). No uses el plan mensual como si fuera su dinero. No inventes datos.`;
 
     let evals = [];
     try {
@@ -219,7 +234,12 @@ Para CADA compra devuelve:
       for (let i = 0; i < compras.length; i++) {
         const x = compras[i];
         const ev = evals.find((e) => Number(e.i) === i) || {};
-        const score = Math.min(5, Math.max(1, Math.round(Number(ev.score) * 10) / 10 || 3));
+        let score = Math.min(5, Math.max(1, Math.round(Number(ev.score) * 10) / 10 || 3));
+        // Topes fijos con los números reales (no dependen de la IA).
+        const mt = metricas[i];
+        if (mt.pctSaldo > 0.4) score = Math.min(score, 2);
+        else if (mt.pctSaldo > 0.2) score = Math.min(score, 3);
+        if (!mt.cubreDeudas) score = Math.min(score, mt.grupo === 'necesidades' ? 3 : 2);
         const u = UMBRALES.find((t) => score >= t.min);
         const razones = (Array.isArray(ev.razones) ? ev.razones : []).map(String).filter(Boolean).slice(0, 2);
         await verificarFondos(client, req.userId, x.metodo, x.monto);

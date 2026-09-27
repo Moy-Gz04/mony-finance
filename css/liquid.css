@@ -419,3 +419,115 @@
 /* El murciélago va encima de la viñeta oscura (si no, casi no se ve) */
 #app::before, #app::after{z-index:-2;}
 .bat-marca{z-index:-1; opacity:.1;}
+
+/* ==================================================================
+   LIQUID GLASS (estilo Apple): casi transparente, poco desenfoque y
+   un borde grueso que refracta y brilla. El "vidrio" se define por su
+   canto, no por lo empañado:
+   - luz fuerte arriba-izquierda (especular) y reflejo tenue abajo-derecha
+   - resplandor interno que da grosor
+   - desenfoque bajo + saturación, para que lo de atrás se siga viendo
+   ================================================================== */
+:root{
+  --lg-blur:blur(5px) saturate(185%) brightness(1.08);
+  --lg-rim:
+    inset 1.5px 1.5px 0.5px -0.5px rgba(255,255,255,0.85),   /* luz arriba-izquierda */
+    inset -1.5px -1.5px 0.5px -0.5px rgba(255,255,255,0.28),  /* reflejo abajo-derecha */
+    inset 0 0 0 1px rgba(255,255,255,0.14),                  /* canto */
+    inset 0 0 22px rgba(255,255,255,0.07),                   /* grosor del vidrio */
+    inset 0 -14px 26px -18px rgba(255,255,255,0.10);
+  --lg-drop:0 18px 40px -22px rgba(0,0,0,0.75), 0 2px 6px -2px rgba(0,0,0,0.4);
+}
+.card, .row, .res-tile, .suple-stats > div, .dia-resumen > div, .ia-ficha, .asesor-bloque, .ia-item, .ia-res-head > div{
+  background:
+    radial-gradient(420px circle at var(--mx, 18%) var(--my, -20%), rgba(255,255,255,0.10), transparent 42%),
+    linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 38%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.05) 100%),
+    rgba(255,255,255,0.025);
+  backdrop-filter:var(--lg-blur);
+  -webkit-backdrop-filter:var(--lg-blur);
+  border:none;
+  box-shadow:var(--lg-rim), var(--lg-drop);
+}
+/* Quitar el borde de color anterior: el canto ahora es la luz */
+.card::before{display:none;}
+.card::after{
+  top:0; left:14%; right:14%; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent);
+  opacity:.6;
+}
+.res-tile, .suple-stats > div, .dia-resumen > div{box-shadow:var(--lg-rim);}
+/* Texto sobre vidrio casi transparente: un poco de sombra para que se lea */
+.card, .row, .sheet, .tabbar{text-shadow:0 1px 2px rgba(0,0,0,0.45);}
+
+@media (hover:hover) and (pointer:fine){
+  .card:hover, .row:hover{
+    box-shadow:
+      inset 1.5px 1.5px 0.5px -0.5px rgba(255,255,255,1),
+      inset -1.5px -1.5px 0.5px -0.5px rgba(255,255,255,0.35),
+      inset 0 0 0 1px rgba(255,255,255,0.2),
+      inset 0 0 26px rgba(255,255,255,0.10),
+      0 26px 50px -24px rgba(0,0,0,0.8), 0 2px 6px -2px rgba(0,0,0,0.4);
+  }
+}
+
+/* Menú y botones flotantes: gotas de vidrio */
+.tabbar{
+  background:linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 45%, rgba(255,255,255,0.06)), rgba(255,255,255,0.03);
+  backdrop-filter:blur(7px) saturate(190%) brightness(1.08);
+  -webkit-backdrop-filter:blur(7px) saturate(190%) brightness(1.08);
+  border:none;
+  box-shadow:var(--lg-rim), 0 20px 44px -18px rgba(0,0,0,0.8);
+}
+.tab-pill{
+  background:linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.05) 55%, rgba(255,255,255,0.12)), rgba(232,176,75,0.10);
+  box-shadow:
+    inset 1.5px 1.5px 0.5px -0.5px rgba(255,255,255,0.95),
+    inset -1px -1px 0.5px -0.5px rgba(255,255,255,0.35),
+    inset 0 0 0 1px rgba(255,255,255,0.18),
+    inset 0 0 14px rgba(255,255,255,0.12),
+    0 6px 16px -8px rgba(0,0,0,0.6);
+}
+.icon-btn, .fab-asesor{
+  background:linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.10)), rgba(255,255,255,0.04);
+  backdrop-filter:blur(4px) saturate(190%) brightness(1.1);
+  -webkit-backdrop-filter:blur(4px) saturate(190%) brightness(1.1);
+  border:none;
+  box-shadow:var(--lg-rim), 0 10px 24px -12px rgba(0,0,0,0.7);
+  color:#fff;
+}
+.fab-asesor{color:#F4F6FA;}
+.fab{
+  background:linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.25)), rgba(232,176,75,0.55);
+  backdrop-filter:blur(4px) saturate(190%);
+  -webkit-backdrop-filter:blur(4px) saturate(190%);
+  box-shadow:
+    inset 2px 2px 1px -1px rgba(255,255,255,1),
+    inset -2px -2px 1px -1px rgba(255,255,255,0.45),
+    inset 0 0 18px rgba(255,255,255,0.25),
+    0 16px 34px -12px rgba(232,176,75,0.6);
+}
+
+/* Ventanas: más transparentes, con el mismo canto brillante */
+.sheet{
+  background:linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 40%), rgba(12,14,20,0.45);
+  backdrop-filter:blur(14px) saturate(190%) brightness(1.05);
+  -webkit-backdrop-filter:blur(14px) saturate(190%) brightness(1.05);
+  border:none;
+  box-shadow:var(--lg-rim), 0 -10px 60px -20px rgba(0,0,0,0.8);
+}
+
+/* La marca de agua un poco más presente para que el vidrio la refracte */
+.bat-marca{opacity:.13;}
+
+/* Menos transparencia si el teléfono lo pide */
+@media (prefers-reduced-transparency: reduce){
+  .card, .row, .res-tile, .sheet, .tabbar, .icon-btn, .fab-asesor{
+    background:#14171F; backdrop-filter:none; -webkit-backdrop-filter:none; text-shadow:none;
+  }
+}
+/* El menú flota sobre contenido: algo más de desenfoque para leer las etiquetas */
+.tabbar{
+  background:linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 45%, rgba(255,255,255,0.06)), rgba(10,12,18,0.38);
+  backdrop-filter:blur(14px) saturate(190%) brightness(1.05);
+  -webkit-backdrop-filter:blur(14px) saturate(190%) brightness(1.05);
+}

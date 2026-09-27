@@ -17,6 +17,10 @@ const suplementosRoutes = require('./routes/suplementos');
 const iaRoutes = require('./routes/ia');
 const suscripcionesRoutes = require('./routes/suscripciones');
 const asesorRoutes = require('./routes/asesor');
+const { recurrentes: recurrentesRoutes, automaticos: automaticosRoutes } = require('./routes/recurrentes');
+const presupuestosRoutes = require('./routes/presupuestos');
+const { router: resumenRoutes } = require('./routes/resumen');
+const { push: pushRoutes, cron: cronRoutes } = require('./routes/push');
 
 const app = express();
 
@@ -56,6 +60,12 @@ app.use('/api/suplementos', suplementosRoutes);
 app.use('/api/ia', iaRoutes);
 app.use('/api/suscripciones', suscripcionesRoutes);
 app.use('/api/asesor', asesorRoutes);
+app.use('/api/recurrentes', recurrentesRoutes);
+app.use('/api/automaticos', automaticosRoutes);
+app.use('/api/presupuestos', presupuestosRoutes);
+app.use('/api/resumen-semanal', resumenRoutes);
+app.use('/api/push', pushRoutes);
+app.use('/api/cron', cronRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 // eslint-disable-next-line no-unused-vars

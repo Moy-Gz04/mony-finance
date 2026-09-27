@@ -1,0 +1,14 @@
+name: Recordatorios BATFINANCE
+on:
+  schedule:
+    - cron: "0 14 * * *"   # 8:00 am México: automáticos, cobros, pagos, presupuestos, resumen
+    - cron: "0 2 * * *"    # 8:00 pm México: metas del gym
+  workflow_dispatch:
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar servidor y mandar avisos
+        run: |
+          T=manana; [ "$(date -u +%H)" = "02" ] && T=tarde
+          for i in 1 2 3 4; do curl -fsS -m 90 "https://mony-finance.onrender.com/api/cron/diario?turno=$T" && break; sleep 30; done

@@ -236,3 +236,103 @@ CROSS JOIN (VALUES
   ('Lagartijas',  3, 15, '#C97C22')
 ) AS e(nombre, orden, reps, color)
 WHERE NOT EXISTS (SELECT 1 FROM suplementos x WHERE x.user_id = u.id AND x.tipo = 'ejercicio');
+
+-- ==================================================================
+-- Automatización, asesor, presupuestos, patrimonio y notificaciones
+-- ==================================================================
+
+-- Ingresos que llegan solos (quincena, sueldo...). Al abrir la app o
+-- con la tarea diaria se registran los que ya tocaron.
+CREATE TABLE IF NOT EXISTS ingresos_recurrentes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
+  monto NUMERIC(14,2) NOT NULL,
+  frecuencia TEXT NOT NULL DEFAULT 'quincenal' CHECK (frecuencia IN ('semanal','quincenal','mensual')),
+  metodo TEXT NOT NULL DEFAULT 'electronico' CHECK (metodo IN ('efectivo','electronico')),
+  proximo DATE NOT NULL,
+  activo BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ing_rec_user ON ingresos_recurrentes(user_id);
+
+-- Suscripciones que se cobran solas el día del cobro.
+ALTER TABLE suscripciones ADD COLUMN IF NOT EXISTS auto_cobro BOOLEAN NOT NULL DEFAULT true;
+
+-- Bitácora de lo que la app hizo sola (para avisar y poder deshacer).
+CREATE TABLE IF NOT EXISTS movimientos_auto (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL CHECK (tipo IN ('ingreso','suscripcion')),
+  ref_id UUID NOT NULL,              -- ingreso recurrente o suscripción de origen
+  registro_id UUID,                  -- ingreso o gasto creado
+  nombre TEXT NOT NULL,
+  monto NUMERIC(14,2) NOT NULL,
+  fecha DATE NOT NULL,               -- fecha que se aplicó (la programada)
+  estado TEXT NOT NULL DEFAULT 'aplicado' CHECK (estado IN ('aplicado','deshecho','sin_saldo')),
+  visto BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (ref_id, fecha, tipo)
+);
+CREATE INDEX IF NOT EXISTS idx_mov_auto_user ON movimientos_auto(user_id);
+
+-- Historial del asesor de compras.
+CREATE TABLE IF NOT EXISTS asesor_historial (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pregunta TEXT NOT NULL,
+  precio NUMERIC(14,2),
+  respuesta JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_asesor_user ON asesor_historial(user_id);
+
+-- Resumen semanal (uno por semana que termina en domingo).
+CREATE TABLE IF NOT EXISTS resumenes_semanales (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  semana DATE NOT NULL,
+  contenido JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, semana)
+);
+
+-- Gym: meta diaria por suplemento/ejercicio (en su unidad: g, reps...).
+ALTER TABLE suplementos ADD COLUMN IF NOT EXISTS meta_diaria NUMERIC(10,2);
+
+-- Presupuesto mensual por categoría de gasto.
+CREATE TABLE IF NOT EXISTS presupuestos (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  categoria TEXT NOT NULL,
+  monto NUMERIC(14,2) NOT NULL,
+  PRIMARY KEY (user_id, categoria)
+);
+
+-- Foto diaria del patrimonio para graficarlo en el tiempo.
+CREATE TABLE IF NOT EXISTS patrimonio_diario (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  fecha DATE NOT NULL,
+  liquido NUMERIC(14,2) NOT NULL,
+  ahorro NUMERIC(14,2) NOT NULL,     -- fondo + metas + inversiones
+  deudas NUMERIC(14,2) NOT NULL,
+  PRIMARY KEY (user_id, fecha)
+);
+
+-- Notificaciones push: dispositivos suscritos, avisos ya enviados y llaves.
+CREATE TABLE IF NOT EXISTS push_suscripciones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  claves JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS notificaciones_enviadas (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  clave TEXT NOT NULL,
+  fecha DATE NOT NULL,
+  PRIMARY KEY (user_id, clave, fecha)
+);
+CREATE TABLE IF NOT EXISTS app_config (
+  clave TEXT PRIMARY KEY,
+  valor TEXT NOT NULL
+);

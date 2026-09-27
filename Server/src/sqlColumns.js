@@ -48,11 +48,11 @@ const APUESTAS_COLS = `
 
 const APORTES_FONDO_COLS = `id, monto, fecha`;
 
-const SUPLEMENTOS_COLS = `id, nombre, orden, cantidad_por_toma AS "cantidadPorToma", unidad, color, tipo`;
+const SUPLEMENTOS_COLS = `id, nombre, orden, cantidad_por_toma AS "cantidadPorToma", unidad, color, tipo, meta_diaria AS "metaDiaria"`;
 
 const TOMAS_SUPLEMENTO_COLS = `id, suplemento_id AS "suplementoId", fecha, cantidad`;
 
-const SUSCRIPCIONES_COLS = `id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro AS "proximoCobro", activa`;
+const SUSCRIPCIONES_COLS = `id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro AS "proximoCobro", activa, auto_cobro AS "autoCobro"`;
 
 module.exports = {
   INGRESOS_COLS,

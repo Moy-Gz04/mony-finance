@@ -168,7 +168,7 @@ function suscRowHtml(s) {
     else if (dias < 0) badge = '<span class="row-badge badge-urgent">Cobro pendiente</span>';
     else if (dias === 0) badge = '<span class="row-badge badge-urgent">Cobra hoy</span>';
     else if (dias <= 3) badge = '<span class="row-badge badge-soon">Cobra en ' + dias + (dias === 1 ? ' día' : ' días') + '</span>';
-    const freq = { semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual', anual: 'Anual' }[s.frecuencia];
+    const freq = { semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual', anual: 'Anual' }[s.frecuencia] + (s.autoCobro ? ' · automático' : '');
     return '<div class="row' + (s.activa ? '' : ' row-off') + '" onclick="openSuscripcion(\'' + s.id + '\')">' +
       '<div class="row-icon" style="background:' + c.color + '22; color:' + c.color + ';">' + c.icon + '</div>' +
       '<div class="row-body"><div class="row-title">' + escapeHtml(s.nombre) + '</div>' +
@@ -315,7 +315,12 @@ function renderGastosList() {
     list.innerHTML = '<div class="empty"><b>Aún no registras gastos</b>Toca el botón + para agregar tu primera compra.</div>';
     return;
   }
-  const sorted = state.gastos.slice().sort(function (a, b) { return new Date(b.fecha) - new Date(a.fecha); });
+  const fuente = typeof gastosFiltrados === 'function' ? gastosFiltrados() : state.gastos;
+  if (!fuente.length) {
+    list.innerHTML = '<div class="empty"><b>Sin resultados</b>Ningún gasto coincide con los filtros.</div>';
+    return;
+  }
+  const sorted = fuente.slice().sort(function (a, b) { return new Date(b.fecha) - new Date(a.fecha); });
   list.innerHTML = sorted.map(function (g) {
     const c = catInfo(g.categoria);
     const starsHtml = g.rating != null

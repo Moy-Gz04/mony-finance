@@ -1028,7 +1028,8 @@ function formSuplemento(s) {
     '<div class="field" style="margin-bottom:0;"><label>Unidad</label><div class="seg" id="sup-unidad">' +
       G().unidades.map(function (u) { return '<button class="seg-opt' + (s.unidad === u ? ' active' : '') + '" data-u="' + u + '">' + u + '</button>'; }).join('') +
     '</div></div>' +
-    '<div class="hint">' + G().hint + '</div>';
+    '<div class="field" style="margin:14px 0 0;"><label>Meta diaria (opcional)</label><input type="number" id="sup-meta" min="0" step="0.5" placeholder="' + (gymTipo === 'ejercicio' ? 'Ej. 100 reps' : 'Ej. 40 g') + '" value="' + (s.metaDiaria ? Number(s.metaDiaria) : '') + '"></div>' +
+    '<div class="hint">' + G().hint + ' La meta va en la misma unidad (' + G().unidad + ') y te muestra avance y rachas.</div>';
 }
 function leerFormSuplemento(m) {
   const act = m.overlay.querySelector('#sup-unidad .seg-opt.active');
@@ -1036,7 +1037,8 @@ function leerFormSuplemento(m) {
     nombre: document.getElementById('sup-nombre').value.trim(),
     cantidadPorToma: parseFloat(document.getElementById('sup-cant').value),
     unidad: act ? act.dataset.u : G().unidades[0],
-    tipo: gymTipo
+    tipo: gymTipo,
+    metaDiaria: parseFloat(document.getElementById('sup-meta').value) || null
   };
 }
 function activarUnidad(m) {
@@ -1095,7 +1097,12 @@ function openAsesor() {
       '<div class="ia-monto ia-monto-sm"><span>$</span><input type="number" id="asesor-precio" inputmode="decimal" min="0" placeholder="Precio" aria-label="Precio (opcional)"></div>' +
       '<button class="btn-primary" id="btn-asesor">Preguntar</button>' +
     '</div>' +
-    '<div class="hint">El precio es opcional; si no lo pones, estimo uno típico.</div>'
+    '<div class="hint">El precio es opcional; si no lo pones, estimo uno típico.</div>' +
+    ((state.asesorHistorial || []).length ? '<div class="section-title" style="margin:22px 0 10px;">Preguntas anteriores</div><div class="asesor-hist">' +
+      state.asesorHistorial.slice(0, 8).map(function (h) {
+        const v = { comprar: 'Cómpralo', esperar: 'Espera', no_comprar: 'Mejor no' }[h.respuesta.veredicto] || '';
+        return '<button class="asesor-hist-item" onclick="verAsesorAnterior(\'' + h.id + '\')"><b>' + escapeHtml(h.pregunta) + '</b><span>' + v + (h.precio ? ' · ' + money(h.precio) : '') + ' · ' + fmtDate(String(h.creado).slice(0, 10)) + '</span></button>';
+      }).join('') + '</div>' : '')
   );
   openAsesor._modal = m;
   if (enfocarSinTeclado()) document.getElementById('asesor-pregunta').focus();
@@ -1114,11 +1121,38 @@ async function preguntarAsesor() {
     const r = await apiFetch('/asesor', { method: 'POST', body: JSON.stringify({ pregunta: pregunta, precio: precio }) });
     if (openAsesor._modal) openAsesor._modal.close();
     setTimeout(function () { mostrarAsesor(r); }, 180);
+    refresh().catch(function () {});
   } catch (e) {
     toast(e.message || 'El asesor no respondió');
   } finally {
     btn.disabled = false; btn.textContent = 'Preguntar';
   }
+}
+function verAsesorAnterior(id) {
+  const h = (state.asesorHistorial || []).find(function (x) { return x.id === id; }); if (!h) return;
+  if (openAsesor._modal) openAsesor._modal.close();
+  setTimeout(function () { mostrarAsesor(Object.assign({ id: h.id, anterior: String(h.creado).slice(0, 10) }, h.respuesta)); }, 180);
+}
+/* Del consejo a la acción */
+function accionAsesor(i, btn) {
+  const a = (mostrarAsesor._acciones || [])[i]; if (!a) return;
+  withLoading(btn, async function () {
+    if (a.tipo === 'crear_meta') {
+      await apiFetch('/metas', { method: 'POST', body: JSON.stringify({ nombre: a.nombre, montoObjetivo: a.monto, montoActual: 0 }) });
+      toast('Meta "' + a.nombre + '" creada 🎯');
+    } else if (a.tipo === 'fondo') {
+      await apiFetch('/fondo-emergencia/aportar', { method: 'POST', body: JSON.stringify({ monto: a.monto, metodo: 'electronico', descontar: true, fecha: localISO() }) });
+      toast(money(a.monto) + ' al fondo de emergencia');
+    } else if (a.tipo === 'aportar_meta') {
+      if (mostrarAsesor._modal) mostrarAsesor._modal.close();
+      await refresh();
+      setTimeout(function () { openAportarMeta(a.metaId); }, 200);
+      return;
+    }
+    await refresh();
+    btn.textContent = '✓ Hecho'; btn.disabled = true;
+    btn.dataset.hecho = '1';
+  });
 }
 function mostrarAsesor(r) {
   const V = {
@@ -1142,8 +1176,17 @@ function mostrarAsesor(r) {
     '<div class="reflexion-box">' + r.razones.map(function (x) { return '<div class="ia-razon">' + escapeHtml(x) + '</div>'; }).join('') + '</div>' +
     (r.alternativa ? '<div class="asesor-bloque"><span>En vez de eso</span>' + escapeHtml(r.alternativa) + '</div>' : '') +
     (r.plan ? '<div class="asesor-bloque"><span>Cómo juntarlo</span>' + escapeHtml(r.plan) + '</div>' : '') +
+    ((r.acciones || []).length ? '<div class="asesor-acciones">' + r.acciones.map(function (a, i) {
+      const txt = a.tipo === 'crear_meta' ? '🎯 Crear meta "' + escapeHtml(a.nombre) + '" de ' + money(a.monto)
+        : a.tipo === 'aportar_meta' ? '🎯 Aportar a "' + escapeHtml(a.nombre) + '" (' + money(a.actual) + ' de ' + money(a.objetivo) + ')'
+        : '🛡️ Mandar ' + money(a.monto) + ' al fondo de emergencia';
+      return '<button class="small-btn primary" onclick="accionAsesor(' + i + ', this)">' + txt + '</button>';
+    }).join('') + '</div>' : '') +
+    (r.anterior ? '<div class="hint" style="text-align:center;">Respuesta del ' + fmtDate(r.anterior) + '. Tus números pudieron cambiar desde entonces.</div>' : '') +
     '<button class="btn-primary" id="asesor-ok" style="margin-top:18px;">Entendido</button>'
   );
+  mostrarAsesor._acciones = r.acciones || [];
+  mostrarAsesor._modal = m;
   renderStars(document.getElementById('asesor-stars'), Number(r.score), 22);
   document.getElementById('asesor-ok').addEventListener('click', m.close);
 }
@@ -1161,6 +1204,7 @@ function formSuscripcion(s) {
       '<button class="seg-opt' + (s.metodo === 'efectivo' ? ' active' : '') + '" data-v="efectivo">Efectivo</button>' +
       '<button class="seg-opt' + (s.metodo !== 'efectivo' ? ' active' : '') + '" data-v="electronico">Tarjeta / electrónico</button>' +
     '</div></div>' +
+    '<label class="toggle-row"><input type="checkbox" id="su-auto"' + (s.autoCobro === false ? '' : ' checked') + '><span><b>Cobrar automáticamente</b><small>El día del cobro se descuenta solo de tu saldo. Te aviso y lo puedes deshacer.</small></span></label>' +
     '<div class="field" style="margin-bottom:0;"><label>Categoría</label><div class="cat-grid" id="su-cats">' +
       CATEGORIAS.map(function (c) { return '<button class="cat-opt' + (s.categoria === c.id ? ' active' : '') + '" data-cat="' + c.id + '"><span class="ci">' + c.icon + '</span>' + c.label + '</button>'; }).join('') +
     '</div></div>';
@@ -1183,7 +1227,8 @@ function leerFormSuscripcion(m) {
     frecuencia: val('#su-freq', 'v'),
     proximoCobro: document.getElementById('su-fecha').value,
     metodo: val('#su-metodo', 'v'),
-    categoria: val('#su-cats', 'cat') || 'entretenimiento'
+    categoria: val('#su-cats', 'cat') || 'entretenimiento',
+    autoCobro: document.getElementById('su-auto').checked
   };
 }
 function openAddSuscripcion() {

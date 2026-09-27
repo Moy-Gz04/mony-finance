@@ -21,7 +21,9 @@ function leerDatos(body) {
   const unidad = UNIDADES.includes(body.unidad) ? body.unidad : 'g';
   if (!nombre) return { error: 'Escribe el nombre del suplemento' };
   if (!(cantidadPorToma > 0)) return { error: 'La cantidad por toma debe ser mayor a 0' };
-  return { nombre, cantidadPorToma, unidad };
+  const meta = Number(body.metaDiaria);
+  const metaDiaria = meta > 0 ? Math.round(meta * 100) / 100 : null;
+  return { nombre, cantidadPorToma, unidad, metaDiaria };
 }
 
 async function todasLasTomas(userId) {
@@ -42,9 +44,9 @@ router.post('/', async (req, res) => {
       'SELECT COALESCE(MAX(orden), 0) + 1 AS n FROM suplementos WHERE user_id = $1 AND tipo = $2', [req.userId, tipo]
     )).rows[0].n;
     const result = await pool.query(
-      `INSERT INTO suplementos (user_id, nombre, orden, cantidad_por_toma, unidad, color, tipo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${SUPLEMENTOS_COLS}`,
-      [req.userId, d.nombre, orden, d.cantidadPorToma, d.unidad, PALETA[(orden - 1) % PALETA.length], tipo]
+      `INSERT INTO suplementos (user_id, nombre, orden, cantidad_por_toma, unidad, color, tipo, meta_diaria)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ${SUPLEMENTOS_COLS}`,
+      [req.userId, d.nombre, orden, d.cantidadPorToma, d.unidad, PALETA[(orden - 1) % PALETA.length], tipo, d.metaDiaria]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -59,9 +61,9 @@ router.put('/:id', async (req, res) => {
   if (d.error) return res.status(400).json({ error: d.error });
   try {
     const result = await pool.query(
-      `UPDATE suplementos SET nombre = $1, cantidad_por_toma = $2, unidad = $3
-       WHERE id = $4 AND user_id = $5 RETURNING ${SUPLEMENTOS_COLS}`,
-      [d.nombre, d.cantidadPorToma, d.unidad, req.params.id, req.userId]
+      `UPDATE suplementos SET nombre = $1, cantidad_por_toma = $2, unidad = $3, meta_diaria = $4
+       WHERE id = $5 AND user_id = $6 RETURNING ${SUPLEMENTOS_COLS}`,
+      [d.nombre, d.cantidadPorToma, d.unidad, d.metaDiaria, req.params.id, req.userId]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'No encontrado' });
     res.json(result.rows[0]);

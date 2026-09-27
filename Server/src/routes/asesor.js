@@ -30,11 +30,11 @@ router.post('/', async (req, res) => {
   const u = req.userId;
 
   try {
-    const [saldo, config, fondo, metas, inv, deudas, ingresos, gastosCat, gastosMes, subs] = await Promise.all([
+    const [saldo, config, fondo, metas, inv, deudas, ingresos, gastosCat, gastosMes, subs, historial] = await Promise.all([
       pool.query('SELECT efectivo, tarjeta FROM saldo WHERE user_id = $1', [u]),
       pool.query('SELECT * FROM config WHERE user_id = $1', [u]),
       pool.query('SELECT actual, meses_objetivo, gasto_mensual FROM fondo_emergencia WHERE user_id = $1', [u]),
-      pool.query('SELECT nombre, monto_objetivo, monto_actual FROM metas WHERE user_id = $1', [u]),
+      pool.query('SELECT id, nombre, monto_objetivo, monto_actual FROM metas WHERE user_id = $1', [u]),
       pool.query('SELECT nombre, monto, tasa FROM inversiones WHERE user_id = $1', [u]),
       pool.query('SELECT nombre, monto_pendiente, monto_cuota, proximo_pago FROM deudas WHERE user_id = $1 AND NOT pagada ORDER BY proximo_pago', [u]),
       pool.query(
@@ -45,7 +45,8 @@ router.post('/', async (req, res) => {
         'SUM(monto)::float AS noventa, COUNT(*)::int AS veces, AVG(rating)::float AS rating ' +
         'FROM gastos WHERE user_id = $1 AND fecha >= CURRENT_DATE - 90 GROUP BY categoria ORDER BY noventa DESC', [u]),
       pool.query("SELECT COALESCE(SUM(monto), 0)::float AS total FROM gastos WHERE user_id = $1 AND fecha >= date_trunc('month', CURRENT_DATE)", [u]),
-      pool.query('SELECT nombre, monto, frecuencia FROM suscripciones WHERE user_id = $1 AND activa', [u])
+      pool.query('SELECT nombre, monto, frecuencia FROM suscripciones WHERE user_id = $1 AND activa', [u]),
+      pool.query('SELECT pregunta, precio, respuesta, created_at FROM asesor_historial WHERE user_id = $1 ORDER BY created_at DESC LIMIT 6', [u])
     ]);
 
     const s = saldo.rows[0] || { efectivo: 0, tarjeta: 0 };
@@ -72,7 +73,11 @@ router.post('/', async (req, res) => {
       'Deudas pendientes: ' + $(deudaTotal) + ' en total; cuotas que vencen en 7 días: ' + $(cuotas7) + '; en 30 días: ' + $(cuotas30) +
         (deudas.rows.length ? ' (' + deudas.rows.slice(0, 6).map((d) => d.nombre + ' cuota ' + $(d.monto_cuota) + ' el ' + fecha(d.proximo_pago)).join('; ') + ')' : '') + '.',
       'Gasto por categoría, últimos 90 días (este mes / 90 días / nº de compras / calificación promedio): ' +
-        (gastosCat.rows.length ? gastosCat.rows.map((g) => g.categoria + ' ' + $(g.mes) + ' / ' + $(g.noventa) + ' / ' + g.veces + (g.rating ? ' / ' + g.rating.toFixed(1) + '★' : '')).join('; ') : 'sin gastos registrados') + '.'
+        (gastosCat.rows.length ? gastosCat.rows.map((g) => g.categoria + ' ' + $(g.mes) + ' / ' + $(g.noventa) + ' / ' + g.veces + (g.rating ? ' / ' + g.rating.toFixed(1) + '★' : '')).join('; ') : 'sin gastos registrados') + '.',
+      'Preguntas anteriores al asesor: ' + (historial.rows.length ? historial.rows.map((h) => {
+        const dias = Math.max(0, Math.round((Date.now() - new Date(h.created_at).getTime()) / 86400000));
+        return 'hace ' + dias + (dias === 1 ? ' día' : ' días') + ' "' + h.pregunta + '"' + (h.respuesta && h.respuesta.precio ? ' (' + $(h.respuesta.precio) + ')' : '') + ' → ' + (h.respuesta ? h.respuesta.veredicto : '');
+      }).join('; ') : 'ninguna') + '.'
     ].join('\n');
 
     const prompt =
@@ -84,7 +89,7 @@ router.post('/', async (req, res) => {
       'Cómo decidir, en orden: 1) si el precio cabe en su dinero disponible sin dejarlo sin cubrir las cuotas de deuda próximas; ' +
       '2) qué tan sano está su fondo de emergencia; 3) si es necesidad o gusto y cuánto ya gasta en ese rubro; ' +
       '4) el costo de oportunidad: cuánto rendiría en SOFIPO, cuánto avanzaría una meta o el fondo, o cuánto bajaría una deuda. ' +
-      'El ingreso fijo NO es dinero disponible.\n\n' +
+      'El ingreso fijo NO es dinero disponible. Si la pregunta se parece a una anterior o a una meta que ya existe, menciónalo (cuándo lo preguntó y cuánto lleva en esa meta).\n\n' +
       'Devuelve JSON con:\n' +
       '- "categoria": una de ' + CATEGORIAS.join(', ') + '.\n' +
       '- "precio": precio usado (el indicado o tu estimado), número.\n' +
@@ -96,6 +101,8 @@ router.post('/', async (req, res) => {
       '- "razones": 2 a 4 frases cortas (máx. 22 palabras), en segunda persona, cada una con un número real de arriba.\n' +
       '- "alternativa": qué haría con ese dinero en vez de gastarlo (fondo, inversión, meta o deuda) con monto y beneficio concreto; si sí conviene, un consejo para comprarlo mejor.\n' +
       '- "plan": si es "esperar", cómo juntarlo (cuánto apartar y en cuánto tiempo); si no, cadena vacía.\n' +
+      '- "nombreMeta": nombre corto para una meta de ahorro de esta compra (2 a 3 palabras, ej. "Perfume nuevo").\n' +
+      '- "montoFondo": si recomiendas mandar dinero al fondo de emergencia en vez de comprar, cuánto (número que quepa en su dinero disponible); si no, 0.\n' +
       'No inventes datos que no estén arriba.';
 
     let ia;
@@ -112,9 +119,11 @@ router.post('/', async (req, res) => {
           resumen: { type: 'STRING' },
           razones: { type: 'ARRAY', items: { type: 'STRING' } },
           alternativa: { type: 'STRING' },
-          plan: { type: 'STRING' }
+          plan: { type: 'STRING' },
+          nombreMeta: { type: 'STRING' },
+          montoFondo: { type: 'NUMBER' }
         },
-        required: ['categoria', 'precio', 'precioEstimado', 'veredicto', 'score', 'titulo', 'resumen', 'razones', 'alternativa', 'plan']
+        required: ['categoria', 'precio', 'precioEstimado', 'veredicto', 'score', 'titulo', 'resumen', 'razones', 'alternativa', 'plan', 'nombreMeta', 'montoFondo']
       }, { temperatura: 0.4 });
     } catch (e) {
       return res.status(502).json({ error: 'El asesor no respondió en este momento. Intenta de nuevo en un minuto.' });
@@ -127,7 +136,21 @@ router.post('/', async (req, res) => {
     if (precio && precio > disponible) { score = Math.min(score, 2); if (veredicto === 'comprar') veredicto = 'esperar'; }
     else if (precio && disponible - precio < cuotas7) { score = Math.min(score, 2.5); if (veredicto === 'comprar') veredicto = 'esperar'; }
 
-    res.json({
+    /* Del consejo a la acción: botones que se pueden ejecutar ahí mismo */
+    const nombreMeta = String(ia.nombreMeta || pregunta).trim().slice(0, 40);
+    const acciones = [];
+    const metaExistente = metas.rows.find((m) => {
+      const a = m.nombre.toLowerCase(), b = nombreMeta.toLowerCase();
+      return a.includes(b.split(' ')[0]) || b.includes(a.split(' ')[0]);
+    });
+    if (veredicto !== 'comprar' && precio) {
+      if (metaExistente) acciones.push({ tipo: 'aportar_meta', metaId: metaExistente.id, nombre: metaExistente.nombre, actual: Number(metaExistente.monto_actual), objetivo: Number(metaExistente.monto_objetivo) });
+      else acciones.push({ tipo: 'crear_meta', nombre: nombreMeta, monto: precio });
+    }
+    const montoFondo = Math.round(Number(ia.montoFondo) || 0);
+    if (montoFondo > 0 && montoFondo <= disponible) acciones.push({ tipo: 'fondo', monto: montoFondo });
+
+    const respuesta = {
       pregunta,
       categoria: CATEGORIAS.includes(ia.categoria) ? ia.categoria : 'otros',
       precio,
@@ -139,8 +162,13 @@ router.post('/', async (req, res) => {
       razones: (ia.razones || []).map(String).filter(Boolean).slice(0, 4),
       alternativa: String(ia.alternativa || '').slice(0, 400),
       plan: String(ia.plan || '').slice(0, 300),
+      acciones,
       disponible
-    });
+    };
+    const h = await pool.query(
+      'INSERT INTO asesor_historial (user_id, pregunta, precio, respuesta) VALUES ($1,$2,$3,$4) RETURNING id',
+      [u, pregunta, precio, JSON.stringify(respuesta)]);
+    res.json({ id: h.rows[0].id, ...respuesta });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error del servidor' });

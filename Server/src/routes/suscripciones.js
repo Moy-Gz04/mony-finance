@@ -22,7 +22,8 @@ function leer(body) {
   if (!nombre) return { error: 'Escribe el nombre de la suscripción' };
   if (!(monto > 0)) return { error: 'El costo debe ser mayor a 0' };
   if (!proximoCobro) return { error: 'Elige la fecha del próximo cobro' };
-  return { nombre, monto, frecuencia, metodo, categoria, proximoCobro };
+  const autoCobro = body.autoCobro !== false;
+  return { nombre, monto, frecuencia, metodo, categoria, proximoCobro, autoCobro };
 }
 
 function siguienteCobro(fecha, frecuencia) {
@@ -46,9 +47,9 @@ router.post('/', async (req, res) => {
   if (d.error) return res.status(400).json({ error: d.error });
   try {
     const r = await pool.query(
-      `INSERT INTO suscripciones (user_id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${SUSCRIPCIONES_COLS}`,
-      [req.userId, d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro]
+      `INSERT INTO suscripciones (user_id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro, auto_cobro)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ${SUSCRIPCIONES_COLS}`,
+      [req.userId, d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro, d.autoCobro]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) {
@@ -63,9 +64,9 @@ router.put('/:id', async (req, res) => {
   const activa = (req.body || {}).activa !== false;
   try {
     const r = await pool.query(
-      `UPDATE suscripciones SET nombre=$1, monto=$2, frecuencia=$3, metodo=$4, categoria=$5, proximo_cobro=$6, activa=$7
-       WHERE id=$8 AND user_id=$9 RETURNING ${SUSCRIPCIONES_COLS}`,
-      [d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro, activa, req.params.id, req.userId]
+      `UPDATE suscripciones SET nombre=$1, monto=$2, frecuencia=$3, metodo=$4, categoria=$5, proximo_cobro=$6, activa=$7, auto_cobro=$8
+       WHERE id=$9 AND user_id=$10 RETURNING ${SUSCRIPCIONES_COLS}`,
+      [d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro, activa, d.autoCobro, req.params.id, req.userId]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'No encontrada' });
     res.json(r.rows[0]);

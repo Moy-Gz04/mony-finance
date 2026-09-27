@@ -52,6 +52,8 @@ const SUPLEMENTOS_COLS = `id, nombre, orden, cantidad_por_toma AS "cantidadPorTo
 
 const TOMAS_SUPLEMENTO_COLS = `id, suplemento_id AS "suplementoId", fecha, cantidad`;
 
+const SUSCRIPCIONES_COLS = `id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro AS "proximoCobro", activa`;
+
 module.exports = {
   INGRESOS_COLS,
   GASTOS_COLS,
@@ -61,5 +63,6 @@ module.exports = {
   APUESTAS_COLS,
   APORTES_FONDO_COLS,
   SUPLEMENTOS_COLS,
-  TOMAS_SUPLEMENTO_COLS
+  TOMAS_SUPLEMENTO_COLS,
+  SUSCRIPCIONES_COLS
 };

@@ -1058,3 +1058,142 @@ function openEditSuplemento(id) {
     });
   });
 }
+
+/* ---------------- ASESOR (Inicio) ---------------- */
+async function preguntarAsesor() {
+  const pregunta = document.getElementById('asesor-pregunta').value.trim();
+  const precio = parseFloat(document.getElementById('asesor-precio').value) || null;
+  if (pregunta.length < 3) { toast('Escribe qué quieres comprar'); return; }
+  const btn = document.getElementById('btn-asesor');
+  btn.disabled = true; btn.textContent = 'Pensando…';
+  try {
+    const r = await apiFetch('/asesor', { method: 'POST', body: JSON.stringify({ pregunta: pregunta, precio: precio }) });
+    mostrarAsesor(r);
+  } catch (e) {
+    toast(e.message || 'El asesor no respondió');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Preguntar';
+  }
+}
+function mostrarAsesor(r) {
+  const V = {
+    comprar: { txt: 'Cómpralo', color: 'var(--cyan)' },
+    esperar: { txt: 'Espera un poco', color: 'var(--amber)' },
+    no_comprar: { txt: 'Mejor no', color: 'var(--coral)' }
+  }[r.veredicto] || { txt: 'Espera un poco', color: 'var(--amber)' };
+  const c = catInfo(r.categoria);
+  const m = openModal(
+    '<div class="ia-marca">✦ Asesor</div>' +
+    '<div class="asesor-preg">“' + escapeHtml(r.pregunta) + '”</div>' +
+    '<div class="asesor-veredicto" style="--vc:' + V.color + '">' +
+      '<b>' + V.txt + '</b>' +
+      '<div class="result-stars" id="asesor-stars"></div>' +
+      '<div class="asesor-titulo">' + escapeHtml(r.titulo) + '</div>' +
+    '</div>' +
+    (r.precio ? '<div class="ia-ficha"><div class="ia-ficha-cat" style="background:' + c.color + '22; color:' + c.color + '">' + c.icon + '</div>' +
+      '<div class="ia-ficha-txt"><b>' + (r.precioEstimado ? 'Precio estimado' : 'Precio') + '</b><span>' + c.label + ' · tienes ' + money(r.disponible) + ' disponibles</span></div>' +
+      '<b class="ia-ficha-monto">' + money(r.precio) + '</b></div>' : '') +
+    '<p class="asesor-resumen">' + escapeHtml(r.resumen) + '</p>' +
+    '<div class="reflexion-box">' + r.razones.map(function (x) { return '<div class="ia-razon">' + escapeHtml(x) + '</div>'; }).join('') + '</div>' +
+    (r.alternativa ? '<div class="asesor-bloque"><span>En vez de eso</span>' + escapeHtml(r.alternativa) + '</div>' : '') +
+    (r.plan ? '<div class="asesor-bloque"><span>Cómo juntarlo</span>' + escapeHtml(r.plan) + '</div>' : '') +
+    '<button class="btn-primary" id="asesor-ok" style="margin-top:18px;">Entendido</button>'
+  );
+  renderStars(document.getElementById('asesor-stars'), Number(r.score), 22);
+  document.getElementById('asesor-ok').addEventListener('click', m.close);
+}
+
+/* ---------------- SUSCRIPCIONES ---------------- */
+function formSuscripcion(s) {
+  s = s || { nombre: '', monto: '', frecuencia: 'mensual', metodo: 'electronico', categoria: 'entretenimiento', proximoCobro: localISO() };
+  return '<div class="field"><label>Nombre</label><input type="text" id="su-nombre" placeholder="Ej. Spotify, Claude, Gym" value="' + escapeHtml(s.nombre) + '"></div>' +
+    '<div class="field"><label>Costo (MXN)</label><input type="number" id="su-monto" inputmode="decimal" min="0" step="0.01" placeholder="0" value="' + (s.monto === '' ? '' : Number(s.monto)) + '"></div>' +
+    '<div class="field"><label>¿Cada cuándo se cobra?</label><div class="seg" id="su-freq">' +
+      ['semanal', 'mensual', 'anual'].map(function (f) { return '<button class="seg-opt' + (s.frecuencia === f ? ' active' : '') + '" data-v="' + f + '">' + f.charAt(0).toUpperCase() + f.slice(1) + '</button>'; }).join('') +
+    '</div></div>' +
+    '<div class="field"><label>Próximo cobro</label><input type="date" id="su-fecha" value="' + String(s.proximoCobro).slice(0, 10) + '"></div>' +
+    '<div class="field"><label>¿Con qué se paga?</label><div class="seg" id="su-metodo">' +
+      '<button class="seg-opt' + (s.metodo === 'efectivo' ? ' active' : '') + '" data-v="efectivo">Efectivo</button>' +
+      '<button class="seg-opt' + (s.metodo !== 'efectivo' ? ' active' : '') + '" data-v="electronico">Tarjeta / electrónico</button>' +
+    '</div></div>' +
+    '<div class="field" style="margin-bottom:0;"><label>Categoría</label><div class="cat-grid" id="su-cats">' +
+      CATEGORIAS.map(function (c) { return '<button class="cat-opt' + (s.categoria === c.id ? ' active' : '') + '" data-cat="' + c.id + '"><span class="ci">' + c.icon + '</span>' + c.label + '</button>'; }).join('') +
+    '</div></div>';
+}
+function activarFormSuscripcion(m) {
+  ['#su-freq', '#su-metodo'].forEach(function (sel) {
+    m.overlay.querySelectorAll(sel + ' .seg-opt').forEach(function (b) {
+      b.addEventListener('click', function () { m.overlay.querySelectorAll(sel + ' .seg-opt').forEach(function (x) { x.classList.toggle('active', x === b); }); });
+    });
+  });
+  m.overlay.querySelectorAll('#su-cats .cat-opt').forEach(function (b) {
+    b.addEventListener('click', function () { m.overlay.querySelectorAll('#su-cats .cat-opt').forEach(function (x) { x.classList.toggle('active', x === b); }); });
+  });
+}
+function leerFormSuscripcion(m) {
+  const val = function (sel, attr) { const a = m.overlay.querySelector(sel + ' .active'); return a ? a.dataset[attr] : null; };
+  return {
+    nombre: document.getElementById('su-nombre').value.trim(),
+    monto: parseFloat(document.getElementById('su-monto').value),
+    frecuencia: val('#su-freq', 'v'),
+    proximoCobro: document.getElementById('su-fecha').value,
+    metodo: val('#su-metodo', 'v'),
+    categoria: val('#su-cats', 'cat') || 'entretenimiento'
+  };
+}
+function openAddSuscripcion() {
+  const m = openModal('<div class="sheet-title">Nueva suscripción</div>' + formSuscripcion() +
+    '<button class="btn-primary" id="su-save" style="margin-top:18px;">Agregar</button>');
+  activarFormSuscripcion(m);
+  document.getElementById('su-save').addEventListener('click', function () {
+    const d = leerFormSuscripcion(m);
+    if (!d.nombre || !(d.monto > 0) || !d.proximoCobro) { toast('Completa nombre, costo y fecha de cobro'); return; }
+    withLoading(this, async function () {
+      await apiFetch('/suscripciones', { method: 'POST', body: JSON.stringify(d) });
+      await refresh(); m.close(); toast('Suscripción agregada');
+    });
+  });
+}
+function openSuscripcion(id) {
+  const s = (state.suscripciones || []).find(function (x) { return x.id === id; }); if (!s) return;
+  const m = openModal('<div class="sheet-title">' + escapeHtml(s.nombre) + '</div>' +
+    (s.activa ? '<button class="btn-primary" id="su-pagar" style="margin-bottom:10px;">Registrar pago de ' + money(s.monto) + '</button>' +
+      '<div class="hint" style="margin:-2px 0 16px;">Se guarda como gasto, se descuenta de tu ' + (s.metodo === 'efectivo' ? 'efectivo' : 'tarjeta') + ' y el próximo cobro se mueve solo.</div>' : '') +
+    formSuscripcion(s) +
+    '<button class="btn-primary" id="su-save" style="margin-top:18px;">Guardar cambios</button>' +
+    '<div class="btn-row" style="margin-top:10px;">' +
+      '<button class="btn-ghost" id="su-pausa" style="flex:1;">' + (s.activa ? 'Pausar' : 'Reactivar') + '</button>' +
+      '<button class="btn-ghost btn-danger" id="su-del" style="flex:1;">Eliminar</button>' +
+    '</div>');
+  activarFormSuscripcion(m);
+  const pagar = document.getElementById('su-pagar');
+  if (pagar) pagar.addEventListener('click', function () {
+    withLoading(this, async function () {
+      await apiFetch('/suscripciones/' + id + '/pagar', { method: 'POST', body: JSON.stringify({}) });
+      await refresh(); m.close(); toast('Pago de ' + s.nombre + ' registrado');
+    });
+  });
+  document.getElementById('su-save').addEventListener('click', function () {
+    const d = leerFormSuscripcion(m);
+    if (!d.nombre || !(d.monto > 0) || !d.proximoCobro) { toast('Completa nombre, costo y fecha de cobro'); return; }
+    d.activa = s.activa;
+    withLoading(this, async function () {
+      await apiFetch('/suscripciones/' + id, { method: 'PUT', body: JSON.stringify(d) });
+      await refresh(); m.close(); toast('Guardado');
+    });
+  });
+  document.getElementById('su-pausa').addEventListener('click', function () {
+    const d = Object.assign({}, s, { proximoCobro: String(s.proximoCobro).slice(0, 10), activa: !s.activa });
+    withLoading(this, async function () {
+      await apiFetch('/suscripciones/' + id, { method: 'PUT', body: JSON.stringify(d) });
+      await refresh(); m.close(); toast(d.activa ? 'Reactivada' : 'Pausada');
+    });
+  });
+  document.getElementById('su-del').addEventListener('click', function () {
+    if (!confirm('¿Eliminar ' + s.nombre + '? Los pagos que ya registraste se quedan en tus gastos.')) return;
+    withLoading(this, async function () {
+      await apiFetch('/suscripciones/' + id, { method: 'DELETE' });
+      await refresh(); m.close(); toast('Suscripción eliminada');
+    });
+  });
+}

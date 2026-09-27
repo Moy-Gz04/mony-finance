@@ -24,7 +24,7 @@ const { verificarFondos } = require('../validaciones');
 const router = express.Router();
 router.use(requireAuth);
 
-const MODELO = 'gemini-3.1-flash-lite';
+const { preguntarGemini } = require('../gemini');
 const CATEGORIAS = ['alimentos', 'ropa', 'entretenimiento', 'tecnologia', 'pareja', 'transporte', 'salud', 'hogar', 'otros'];
 const GRUPO_NECESIDAD = ['alimentos', 'hogar', 'salud', 'transporte'];
 const METODOS = ['efectivo', 'electronico'];
@@ -44,33 +44,6 @@ function sinLlave(res) {
   if (process.env.GEMINI_API_KEY) return false;
   res.status(503).json({ error: 'El registro inteligente no está configurado (falta GEMINI_API_KEY en el servidor).' });
   return true;
-}
-
-async function preguntarGemini(texto, schema) {
-  const llaves = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_3, process.env.GEMINI_API_KEY_5].filter(Boolean);
-  const cuerpo = JSON.stringify({
-    contents: [{ parts: [{ text: texto }] }],
-    generationConfig: { maxOutputTokens: 2048, temperature: 0.2, responseMimeType: 'application/json', responseSchema: schema }
-  });
-  // Gemini a veces responde 503 "alta demanda": hasta 4 intentos rotando llaves.
-  for (let i = 0; i < 4; i++) {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 25000);
-    try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${llaves[i % llaves.length]}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: cuerpo, signal: ctrl.signal });
-      const data = await r.json();
-      const txt = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim();
-      if (txt) return JSON.parse(txt);
-      console.warn(`IA intento ${i + 1}/4:`, JSON.stringify(data).slice(0, 160));
-    } catch (e) {
-      console.warn(`IA intento ${i + 1}/4:`, e.message);
-    } finally {
-      clearTimeout(t);
-    }
-    await new Promise((res) => setTimeout(res, 700 * (i + 1)));
-  }
-  throw new Error('Gemini no respondió');
 }
 
 /* ---------- 1) Separar y clasificar ---------- */

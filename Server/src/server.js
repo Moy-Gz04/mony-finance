@@ -15,6 +15,8 @@ const metasRoutes = require('./routes/metas');
 const apuestasRoutes = require('./routes/apuestas');
 const suplementosRoutes = require('./routes/suplementos');
 const iaRoutes = require('./routes/ia');
+const suscripcionesRoutes = require('./routes/suscripciones');
+const asesorRoutes = require('./routes/asesor');
 
 const app = express();
 
@@ -52,6 +54,8 @@ app.use('/api/metas', metasRoutes);
 app.use('/api/apuestas', apuestasRoutes);
 app.use('/api/suplementos', suplementosRoutes);
 app.use('/api/ia', iaRoutes);
+app.use('/api/suscripciones', suscripcionesRoutes);
+app.use('/api/asesor', asesorRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 // eslint-disable-next-line no-unused-vars

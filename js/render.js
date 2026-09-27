@@ -90,6 +90,78 @@ function renderInicio() {
     '</div>';
 }
 
+/* ---------------- RESUMEN DEL MES (Inicio) ---------------- */
+const SUSC_POR_MES = { semanal: 52 / 12, mensual: 1, anual: 1 / 12 };
+function suscripcionesMensual() {
+  return (state.suscripciones || []).filter(function (s) { return s.activa; })
+    .reduce(function (a, s) { return a + Number(s.monto) * (SUSC_POR_MES[s.frecuencia] || 1); }, 0);
+}
+function renderResumenMes() {
+  const el = document.getElementById('home-resumen');
+  if (!el) return;
+  const mes = localISO().slice(0, 7);
+  const ingresos = state.ingresos.filter(function (x) { return String(x.fecha).slice(0, 7) === mes; }).reduce(function (a, x) { return a + Number(x.monto); }, 0);
+  const gastos = state.gastos.filter(function (x) { return String(x.fecha).slice(0, 7) === mes; }).reduce(function (a, x) { return a + Number(x.monto); }, 0);
+  const balance = ingresos - gastos;
+  const ahorro = Number(state.fondoEmergencia.actual || 0) + totalMetas() + totalInvertido();
+  const subs = suscripcionesMensual();
+  const proxSub = (state.suscripciones || []).filter(function (s) { return s.activa; })
+    .sort(function (a, b) { return a.proximoCobro < b.proximoCobro ? -1 : 1; })[0];
+  function tile(label, valor, nota, clase) {
+    return '<div class="res-tile"><span>' + label + '</span><b class="' + (clase || '') + '">' + valor + '</b>' + (nota ? '<em>' + nota + '</em>' : '') + '</div>';
+  }
+  el.innerHTML =
+    '<div class="res-grid">' +
+      tile('Ingresos', money(ingresos), 'este mes') +
+      tile('Gastos', money(gastos), 'este mes') +
+      tile('Balance', (balance < 0 ? '−' : '') + money(Math.abs(balance)), balance < 0 ? 'gastas más de lo que entra' : 'a tu favor', balance < 0 ? 'neg' : 'pos') +
+      tile('Suscripciones', money(subs), proxSub ? 'próximo: ' + escapeHtml(proxSub.nombre) + ' ' + fmtDate(proxSub.proximoCobro) : 'al mes') +
+      tile('Deudas', money(totalDeudas()), 'por pagar') +
+      tile('Ahorrado', money(ahorro), 'fondo + metas + inversión') +
+    '</div>';
+}
+
+/* ---------------- SUSCRIPCIONES ---------------- */
+function renderSuscripciones() {
+  const res = document.getElementById('susc-resumen');
+  const list = document.getElementById('susc-list');
+  if (!res || !list) return;
+  const subs = state.suscripciones || [];
+  const activas = subs.filter(function (s) { return s.activa; });
+  const mensual = suscripcionesMensual();
+  res.innerHTML =
+    '<div class="res-grid res-grid-3">' +
+      '<div class="res-tile"><span>Al mes</span><b>' + money(mensual) + '</b></div>' +
+      '<div class="res-tile"><span>Al año</span><b>' + money(mensual * 12) + '</b></div>' +
+      '<div class="res-tile"><span>Activas</span><b>' + activas.length + '</b></div>' +
+    '</div>' +
+    (Number(state.config.ingresoMensualFijo) > 0 && mensual > 0
+      ? '<div class="hint" style="margin-top:10px;">Tus suscripciones son el ' + Math.round(mensual / Number(state.config.ingresoMensualFijo) * 100) + '% de tu ingreso fijo.</div>' : '');
+  if (!subs.length) {
+    list.innerHTML = '<div class="empty"><b>Sin suscripciones</b>Agrega Spotify, Claude, el gym… con el botón +.</div>';
+    return;
+  }
+  const orden = subs.slice().sort(function (a, b) {
+    if (a.activa !== b.activa) return a.activa ? -1 : 1;
+    return a.proximoCobro < b.proximoCobro ? -1 : 1;
+  });
+  list.innerHTML = orden.map(function (s) {
+    const c = catInfo(s.categoria);
+    const dias = daysUntil(s.proximoCobro);
+    let badge = '<span class="row-badge badge-ok">Cobra en ' + dias + ' días</span>';
+    if (!s.activa) badge = '<span class="row-badge">Pausada</span>';
+    else if (dias < 0) badge = '<span class="row-badge badge-urgent">Cobro pendiente</span>';
+    else if (dias === 0) badge = '<span class="row-badge badge-urgent">Cobra hoy</span>';
+    else if (dias <= 3) badge = '<span class="row-badge badge-soon">Cobra en ' + dias + (dias === 1 ? ' día' : ' días') + '</span>';
+    const freq = { semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual' }[s.frecuencia];
+    return '<div class="row' + (s.activa ? '' : ' row-off') + '" onclick="openSuscripcion(\'' + s.id + '\')">' +
+      '<div class="row-icon" style="background:' + c.color + '22; color:' + c.color + ';">' + c.icon + '</div>' +
+      '<div class="row-body"><div class="row-title">' + escapeHtml(s.nombre) + '</div>' +
+        '<div class="row-sub">' + freq + ' · ' + metodoLabel(s.metodo) + ' · ' + fmtDate(s.proximoCobro) + '</div>' + badge + '</div>' +
+      '<div class="row-value">' + money(s.monto) + '</div></div>';
+  }).join('');
+}
+
 function debtRowHtml(d) {
   const days = daysUntil(d.proximoPago);
   let badge = 'badge-ok', label = 'Vence en ' + days + ' días', pulse = '';
@@ -793,6 +865,8 @@ function rangoSuple(n) { supleRango = n; renderSupleChart(); }
 
 function renderAll() {
   renderInicio();
+  renderResumenMes();
+  renderSuscripciones();
   renderMovimientos();
   renderDeudas();
   renderInversion();

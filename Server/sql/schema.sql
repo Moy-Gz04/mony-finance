@@ -199,3 +199,20 @@ CROSS JOIN (VALUES
   ('Pre-entreno',   5,  1, 'scoop', '#E8456A')
 ) AS s(nombre, orden, cant, unidad, color)
 WHERE NOT EXISTS (SELECT 1 FROM suplementos x WHERE x.user_id = u.id);
+
+-- ---------- Suscripciones ----------
+-- Pagos recurrentes (Spotify, Claude, gym...). "Registrar pago" crea el
+-- gasto, descuenta del saldo y mueve proximo_cobro según la frecuencia.
+CREATE TABLE IF NOT EXISTS suscripciones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
+  monto NUMERIC(14,2) NOT NULL,
+  frecuencia TEXT NOT NULL DEFAULT 'mensual' CHECK (frecuencia IN ('semanal','mensual','anual')),
+  metodo TEXT NOT NULL DEFAULT 'electronico' CHECK (metodo IN ('efectivo','electronico')),
+  categoria TEXT NOT NULL DEFAULT 'entretenimiento',
+  proximo_cobro DATE NOT NULL,
+  activa BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_suscripciones_user ON suscripciones(user_id);

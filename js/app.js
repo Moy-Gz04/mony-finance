@@ -65,6 +65,24 @@ function showView(name) {
   renderAll();
 }
 
+let currentPSub = 'deudas';
+function initPagosTabs() {
+  document.querySelectorAll('.ptab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      currentPSub = btn.dataset.psub;
+      document.querySelectorAll('.ptab').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      document.getElementById('psub-deudas').hidden = currentPSub !== 'deudas';
+      document.getElementById('psub-susc').hidden = currentPSub !== 'susc';
+    });
+  });
+}
+function initAsesor() {
+  document.getElementById('btn-asesor').addEventListener('click', preguntarAsesor);
+  document.getElementById('asesor-pregunta').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); preguntarAsesor(); }
+  });
+}
+
 function initNavigation() {
   document.querySelectorAll('.tab-btn').forEach(function (btn) {
     btn.addEventListener('click', function () { showView(btn.dataset.view); });
@@ -80,10 +98,10 @@ function initNavigation() {
     showView(currentView === 'config' ? 'inicio' : currentView);
   });
 
-  document.querySelectorAll('.subtab').forEach(function (btn) {
+  document.querySelectorAll('.subtab:not(.ptab)').forEach(function (btn) {
     btn.addEventListener('click', function () {
       currentSub = btn.dataset.sub;
-      document.querySelectorAll('.subtab').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      document.querySelectorAll('.subtab:not(.ptab)').forEach(function (b) { b.classList.toggle('active', b === btn); });
       document.getElementById('sub-gastos').hidden = currentSub !== 'gastos';
       document.getElementById('sub-ingresos').hidden = currentSub !== 'ingresos';
       document.getElementById('sub-plan').hidden = currentSub !== 'plan';
@@ -98,7 +116,7 @@ function initFab() {
     if (currentView === 'inicio' || (currentView === 'mov' && currentSub === 'gastos')) openAddGasto();
     else if (currentView === 'mov' && currentSub === 'ingresos') openAddIngreso();
     else if (currentView === 'mov' && currentSub === 'plan') showView('config');
-    else if (currentView === 'deudas') openAddDeuda();
+    else if (currentView === 'deudas') (currentPSub === 'susc' ? openAddSuscripcion() : openAddDeuda());
     else if (currentView === 'inversion') openAddInversion();
     else if (currentView === 'metas') openAddMeta();
     else if (currentView === 'apuestas') openAddApuesta();
@@ -169,6 +187,8 @@ function initConfig() {
 /* ---------------- INIT ---------------- */
 (async function init() {
   initNavigation();
+  initPagosTabs();
+  initAsesor();
   initFab();
   initConfig();
   initSaldo();

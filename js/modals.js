@@ -95,8 +95,8 @@ function openAddGasto() {
     '</div></div>' +
     '<div class="field"><label>Fecha</label><input type="date" id="g-fecha" value="' + todayISO() + '"></div>' +
     '<div class="btn-row" style="margin-top:4px; align-items:stretch;">' +
-      '<button class="btn-primary" id="g-evaluar" style="flex:1; width:auto; min-height:56px; display:flex; align-items:center; justify-content:center; font-size:12.5px; line-height:1.25; padding:10px 6px; background:linear-gradient(120deg,var(--violet),#6a4fe0);">Evaluar si es una compra inteligente</button>' +
-      '<button class="btn-primary" id="g-directo" style="flex:1; width:auto; min-height:56px; display:flex; align-items:center; justify-content:center; font-size:12.5px; line-height:1.25; padding:10px 6px; color:var(--violet); background:linear-gradient(120deg, rgba(139,107,255,0.18), rgba(106,79,224,0.18)); border:1px solid rgba(139,107,255,0.4); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:none;">Guardar sin evaluar</button>' +
+      '<button class="btn-primary" id="g-evaluar" style="flex:1; width:auto; min-height:56px; display:flex; align-items:center; justify-content:center; font-size:12.5px; line-height:1.25; padding:10px 6px; background:linear-gradient(120deg,var(--violet),#8C94A4);">Evaluar si es una compra inteligente</button>' +
+      '<button class="btn-primary" id="g-directo" style="flex:1; width:auto; min-height:56px; display:flex; align-items:center; justify-content:center; font-size:12.5px; line-height:1.25; padding:10px 6px; color:var(--violet); background:linear-gradient(120deg, rgba(190,198,212,0.18), rgba(140,148,164,0.18)); border:1px solid rgba(190,198,212,0.4); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:none;">Guardar sin evaluar</button>' +
     '</div>'
   );
   m.overlay.querySelectorAll('.cat-opt').forEach(function (btn) {

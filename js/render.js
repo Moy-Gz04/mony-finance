@@ -426,7 +426,7 @@ function renderPlan() {
           '<span class="kv-label">' + label + '</span>' +
           '<span class="kv-value" style="font-size:12px;">' + money(usado) + ' / ' + money(target) + '</span>' +
         '</div>' +
-        '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%; background:' + (cumplida ? 'linear-gradient(90deg,var(--cyan),#00b89a)' : color) + '"></div></div>' +
+        '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%; background:' + (cumplida ? 'linear-gradient(90deg,var(--cyan),#B7832C)' : color) + '"></div></div>' +
         '<div class="hint" style="margin-top:5px; font-weight:700;">' +
           (cumplida
             ? '<span style="color:var(--cyan);">¡Superaste tu meta mensual' + (diff < 0 ? ' por ' + money(-diff) : '') + '! 🎉 Felicidades</span>'
@@ -447,10 +447,10 @@ function renderPlan() {
 
   document.getElementById('plan-card').innerHTML = header + (ingresoBase <= 0
     ? '<div class="empty"><b>Configura tu ingreso mensual</b>Ve a Configuración → "Tu ingreso mensual fijo" para activar tu plan de distribución.</div>'
-    : rowGasto('Necesidades (' + d.necesidades + '%)', usadoNecesidades, targetNec, 'linear-gradient(90deg,#5AA9FF,#00E6C3)') +
+    : rowGasto('Necesidades (' + d.necesidades + '%)', usadoNecesidades, targetNec, 'linear-gradient(90deg,#5AA9FF,#E8B04B)') +
       rowGasto('Deseos (' + d.deseos + '%)', usadoDeseos, targetDes, 'linear-gradient(90deg,#FF9F5A,#FF4F70)') +
-      rowMeta('Inversión (' + d.inversion + '%)', usadoInversion, targetInv, 'linear-gradient(90deg,#8B6BFF,#6a4fe0)', 'invertir') +
-      rowMeta('Fondo de emergencia (' + d.ahorro + '%)', usadoFondo, targetFondo, 'linear-gradient(90deg,#8B6BFF,#6a4fe0)', 'ahorrar'));
+      rowMeta('Inversión (' + d.inversion + '%)', usadoInversion, targetInv, 'linear-gradient(90deg,#BEC6D4,#8C94A4)', 'invertir') +
+      rowMeta('Fondo de emergencia (' + d.ahorro + '%)', usadoFondo, targetFondo, 'linear-gradient(90deg,#BEC6D4,#8C94A4)', 'ahorrar'));
 }
 
 /* ---------------- DEUDAS ---------------- */
@@ -538,12 +538,12 @@ function renderMetasResumen() {
   el.innerHTML =
     '<div class="card" style="padding:18px 20px;">' +
       '<div style="display:flex; gap:12px;">' +
-        '<div style="flex:1; text-align:center; padding:14px 8px; border-radius:14px; background:rgba(0,230,195,0.08); border:1px solid rgba(0,230,195,0.22);">' +
+        '<div style="flex:1; text-align:center; padding:14px 8px; border-radius:14px; background:rgba(232,176,75,0.08); border:1px solid rgba(232,176,75,0.22);">' +
           '<div style="font-size:26px; font-weight:800; color:var(--cyan); font-family:var(--mono);">' + completadas.length + '</div>' +
           '<div style="font-size:11px; color:var(--text-dim); font-weight:700; margin-top:2px;">Completadas</div>' +
           '<div style="font-size:10.5px; color:var(--text-faint); margin-top:4px;">' + money(ahorradoCompletadas) + ' en total</div>' +
         '</div>' +
-        '<div style="flex:1; text-align:center; padding:14px 8px; border-radius:14px; background:rgba(139,107,255,0.08); border:1px solid rgba(139,107,255,0.22);">' +
+        '<div style="flex:1; text-align:center; padding:14px 8px; border-radius:14px; background:rgba(190,198,212,0.08); border:1px solid rgba(190,198,212,0.22);">' +
           '<div style="font-size:26px; font-weight:800; color:var(--violet); font-family:var(--mono);">' + pendientes.length + '</div>' +
           '<div style="font-size:11px; color:var(--text-dim); font-weight:700; margin-top:2px;">Pendientes</div>' +
           '<div style="font-size:10.5px; color:var(--text-faint); margin-top:4px;">' + money(ahorradoPendientes) + ' ahorrado</div>' +

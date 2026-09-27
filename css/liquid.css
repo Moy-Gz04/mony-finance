@@ -247,3 +247,65 @@
   .card, .row, .sheet, .tabbar{background:var(--surface); border-color:rgba(255,255,255,0.5);}
   .row-sub, .fold-sub, .hint{color:var(--text);}
 }
+
+/* ==================================================================
+   Fondo para el vidrio: campos de color grandes y FIJOS detrás de la
+   app. El vidrio solo se luce si hay color que desenfocar; al hacer
+   scroll, el contenido pasa por encima y el material cambia de tono.
+   Deriva muy lenta (casi imperceptible); se congela con reducir
+   movimiento.
+   ================================================================== */
+#app{
+  background:#070A12;
+  isolation:isolate;
+}
+#app::before, #app::after{
+  content:""; position:fixed; z-index:-1; pointer-events:none;
+  top:0; bottom:0; left:50%; width:min(460px, 100%); transform:translateX(-50%);
+}
+#app::before{
+  background:
+    radial-gradient(60% 38% at 8% 6%, rgba(0,230,195,0.75), transparent 70%),
+    radial-gradient(55% 36% at 100% 18%, rgba(139,107,255,0.85), transparent 70%),
+    radial-gradient(58% 34% at 0% 52%, rgba(255,79,150,0.62), transparent 70%),
+    radial-gradient(62% 38% at 100% 70%, rgba(61,123,255,0.78), transparent 72%),
+    radial-gradient(60% 30% at 30% 100%, rgba(0,230,195,0.58), transparent 70%),
+    radial-gradient(40% 24% at 80% 100%, rgba(255,180,84,0.40), transparent 70%);
+  filter:saturate(125%);
+  animation:deriva 48s ease-in-out infinite alternate;
+}
+/* Viñeta oscura para que el texto siempre se lea sobre el color */
+#app::after{
+  background:
+    radial-gradient(120% 70% at 50% 40%, transparent 45%, rgba(4,6,12,0.40) 100%),
+    linear-gradient(180deg, rgba(7,10,18,0.25), rgba(7,10,18,0.05) 30%, rgba(7,10,18,0.35));
+}
+@keyframes deriva{
+  from{transform:translateX(-50%) translate3d(0,0,0) scale(1);}
+  to{transform:translateX(-50%) translate3d(0,-2%,0) scale(1.06);}
+}
+@media (min-width:461px){
+  #app::before, #app::after{top:24px; bottom:24px; border-radius:36px;}
+}
+
+/* Con más color detrás, el vidrio puede ser más transparente */
+:root{--glass-fill:rgba(255,255,255,0.035);}
+.card{
+  background:
+    radial-gradient(420px circle at var(--mx, 20%) var(--my, -30%), rgba(255,255,255,0.12), transparent 45%),
+    linear-gradient(160deg, rgba(255,255,255,0.13), rgba(255,255,255,0.01) 45%, rgba(255,255,255,0.04)),
+    rgba(12,16,28,0.28);
+}
+.row{
+  background:
+    radial-gradient(360px circle at var(--mx, 20%) var(--my, -30%), rgba(255,255,255,0.10), transparent 45%),
+    linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.01) 45%),
+    rgba(12,16,28,0.30);
+}
+.topbar{background:linear-gradient(180deg, rgba(7,10,18,0.55) 0%, rgba(7,10,18,0.25) 62%, transparent);}
+/* Texto sobre vidrio: un poco más de contraste (vibrancy) */
+.hint, .row-sub, .fold-sub, .hero-sub, .res-tile em{color:#9AA5BA;}
+.section-title{color:#AEB8CB;}
+
+@media (prefers-reduced-motion: reduce){ #app::before{animation:none;} }
+@media (prefers-reduced-transparency: reduce){ #app::before{opacity:.35;} }

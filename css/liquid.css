@@ -348,3 +348,46 @@
 
 /* Logo BATFINANCE: más alargado que el anterior */
 .brand-logo{height:30px; max-width:230px; filter:drop-shadow(0 2px 8px rgba(0,0,0,0.45));}
+
+/* ==================================================================
+   Tema Batman: noche de Gotham con la bati-señal.
+   Base negra/carbón, resplandor dorado arriba (la señal en el cielo),
+   niebla azul noche y reflejos bronce para que el vidrio tenga color.
+   ================================================================== */
+#app{background:#050608;}
+#app::before{
+  background:
+    /* Bati-señal: haz dorado arriba */
+    radial-gradient(46% 26% at 50% 4%, rgba(255,196,77,0.62), transparent 72%),
+    radial-gradient(70% 34% at 50% -4%, rgba(242,160,40,0.35), transparent 70%),
+    /* Niebla azul noche a los lados */
+    radial-gradient(58% 36% at 0% 34%, rgba(38,62,110,0.70), transparent 72%),
+    radial-gradient(56% 34% at 100% 52%, rgba(30,48,92,0.72), transparent 72%),
+    /* Reflejos bronce/ámbar como luces de la ciudad */
+    radial-gradient(52% 30% at 12% 82%, rgba(176,110,38,0.50), transparent 70%),
+    radial-gradient(48% 28% at 92% 96%, rgba(214,150,52,0.42), transparent 70%),
+    radial-gradient(60% 30% at 50% 70%, rgba(20,24,34,0.9), transparent 75%);
+  filter:saturate(115%);
+}
+#app::after{
+  background:
+    radial-gradient(120% 70% at 50% 42%, transparent 42%, rgba(0,0,0,0.55) 100%),
+    linear-gradient(180deg, rgba(5,6,8,0.10), rgba(5,6,8,0.10) 30%, rgba(5,6,8,0.45));
+}
+/* Borde de las tarjetas: dorado sutil en vez de turquesa/violeta */
+.card::before{
+  background:linear-gradient(135deg, rgba(255,196,77,0.38), rgba(255,255,255,0.10) 30%, transparent 58%, rgba(176,110,38,0.30));
+}
+.card{
+  background:
+    radial-gradient(420px circle at var(--mx, 20%) var(--my, -30%), rgba(255,220,150,0.10), transparent 45%),
+    linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.01) 45%, rgba(255,255,255,0.03)),
+    rgba(10,12,18,0.34);
+}
+.row{
+  background:
+    radial-gradient(360px circle at var(--mx, 20%) var(--my, -30%), rgba(255,220,150,0.08), transparent 45%),
+    linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.01) 45%),
+    rgba(10,12,18,0.36);
+}
+.topbar{background:linear-gradient(180deg, rgba(5,6,8,0.62) 0%, rgba(5,6,8,0.28) 62%, transparent);}

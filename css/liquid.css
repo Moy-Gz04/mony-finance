@@ -399,3 +399,5 @@
 .ia-cta-ico, .asesor-ico{color:#0B0D12;}
 .ia-marca, .asesor-bloque span{color:#D9C08A;}
 .tab-btn.active{color:#F0C063;}
+/* Logo plateado: letras delgadas, un poco más grande para que se lea */
+.brand-logo{height:36px; max-width:250px;}

@@ -87,8 +87,6 @@ function setToken(token) {
 async function apiFetch(path, options) {
   options = options || {};
   const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
-  const token = getToken();
-  if (token) headers.Authorization = 'Bearer ' + token;
 
   let res;
   try {

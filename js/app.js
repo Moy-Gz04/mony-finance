@@ -38,34 +38,6 @@ function startQuoteTicker() {
   }, 6000);
 }
 
-/* ---------------- CERRAR SESIÓN (con confirmación) ---------------- */
-function doLogout() {
-  setToken(null);
-  state = defaultState();
-  document.getElementById('screen-main').hidden = true;
-  document.getElementById('screen-login').hidden = false;
-  document.getElementById('input-user').value = '';
-  document.getElementById('input-pass').value = '';
-}
-function initLogoutButton() {
-  document.getElementById('btn-logout-top').addEventListener('click', function () {
-    const m = openModal(
-      '<div class="sheet-title">¿Cerrar sesión?</div>' +
-      '<p style="font-size:13px; color:var(--text-dim); line-height:1.5;">Vas a salir de tu cuenta. Puedes volver a entrar cuando quieras con tu usuario y contraseña.</p>' +
-      '<div class="btn-row" style="margin-top:20px;">' +
-        '<button class="btn-ghost" id="cancel-logout" style="flex:1;">Cancelar</button>' +
-        '<button class="btn-ghost btn-danger" id="confirm-logout" style="flex:1;">Cerrar sesión</button>' +
-      '</div>',
-      { center: true }
-    );
-    document.getElementById('cancel-logout').addEventListener('click', m.close);
-    document.getElementById('confirm-logout').addEventListener('click', function () {
-      doLogout();
-      m.close();
-    });
-  });
-}
-
 /* ---------------- SALDO / PAGOS PENDIENTES ---------------- */
 function initSaldo() {
   document.getElementById('btn-edit-liquido').addEventListener('click', openEditLiquido);
@@ -193,66 +165,21 @@ function initConfig() {
   });
 }
 
-/* ---------------- LOGIN ---------------- */
-async function doLogin() {
-  const u = document.getElementById('input-user').value.trim();
-  const p = document.getElementById('input-pass').value;
-  const err = document.getElementById('login-error');
-  const btn = document.getElementById('btn-login');
-  if (!u || !p) {
-    err.textContent = 'Escribe tu usuario y contraseña';
-    return;
-  }
-  err.textContent = '';
-  btn.disabled = true;
-  btn.textContent = 'Entrando…';
-  try {
-    const data = await apiFetch('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username: u, password: p })
-    });
-    setToken(data.token);
-    await loadState();
-    document.getElementById('screen-login').hidden = true;
-    document.getElementById('screen-main').hidden = false;
-    showView('inicio');
-    checkSeguimientosPendientes();
-  } catch (e) {
-    err.textContent = e.message || 'Usuario o contraseña incorrectos';
-    const card = document.getElementById('login-card');
-    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Entrar al sistema';
-  }
-}
-function initLogin() {
-  document.getElementById('btn-login').addEventListener('click', doLogin);
-  document.getElementById('input-pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
-}
-
 /* ---------------- INIT ---------------- */
 (async function init() {
-  initLogin();
   initNavigation();
   initFab();
   initConfig();
   initSaldo();
-  initLogoutButton();
   startQuoteTicker();
 
-  // Si ya había una sesión (token guardado), intenta entrar directo sin
-  // pedir login otra vez. Si el token ya venció o es inválido, regresa
-  // a la pantalla de login normalmente.
-  if (getToken()) {
-    try {
-      await loadState();
-      document.getElementById('screen-login').hidden = true;
-      document.getElementById('screen-main').hidden = false;
-      showView('inicio');
-      checkSeguimientosPendientes();
-    } catch (e) {
-      setToken(null);
-    }
+  // Sin login: la app entra directo y carga los datos del servidor.
+  showView('inicio');
+  try {
+    await loadState();
+    showView('inicio');
+    checkSeguimientosPendientes();
+  } catch (e) {
+    toast(e.message || 'No se pudieron cargar tus datos');
   }
 })();

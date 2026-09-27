@@ -64,7 +64,9 @@ router.post('/:id/pagar', async (req, res) => {
     } else {
       pagosRealizados += 1;
       montoPendiente = Math.max(0, montoPendiente - Number(d.monto_cuota));
-      if ((d.duracion && pagosRealizados >= d.duracion) || montoPendiente <= 0) {
+      // Liquidada solo cuando ya no queda saldo: si el número de pagos se
+      // capturó de menos, la deuda sigue activa hasta cubrir el total.
+      if (montoPendiente <= 0.009) {
         pagada = true;
         montoPendiente = 0;
       } else {

@@ -572,6 +572,18 @@ function openAddDeuda() {
     document.getElementById('d-duracion-field').hidden = tipo === 'unico';
   }
   syncTipoUI();
+  // Calcula solo el número de pagos (total ÷ cuota, hacia arriba) mientras
+  // no lo hayas escrito tú; si lo cambias a mano, se respeta.
+  let duracionManual = false;
+  function autoDuracion() {
+    if (duracionManual) return;
+    const total = parseFloat(document.getElementById('d-total').value);
+    const cuota = parseFloat(document.getElementById('d-cuota').value);
+    document.getElementById('d-duracion').value = (total > 0 && cuota > 0) ? Math.ceil(total / cuota - 0.0001) : '';
+  }
+  document.getElementById('d-total').addEventListener('input', autoDuracion);
+  document.getElementById('d-cuota').addEventListener('input', autoDuracion);
+  document.getElementById('d-duracion').addEventListener('input', function () { duracionManual = this.value !== ''; });
   m.overlay.querySelectorAll('#d-tipo .seg-opt').forEach(function (btn) {
     btn.addEventListener('click', function () {
       tipo = btn.dataset.t;
@@ -588,6 +600,12 @@ function openAddDeuda() {
     const duracion = tipo === 'unico' ? 1 : (parseInt(duracionRaw, 10) || 0);
     if (!nombre || isNaN(total) || total <= 0 || isNaN(cuota) || cuota <= 0) { toast('Completa todos los campos'); return; }
     if (tipo !== 'unico' && duracion <= 0) { toast('Indica en cuántos pagos la vas a liquidar'); return; }
+    // Aviso si los números no cuadran (ej. 1 pago de $750 para una deuda de $2,250)
+    if (tipo !== 'unico' && duracion * cuota < total - 0.5) {
+      const ok = confirm('Con ' + duracion + (duracion === 1 ? ' pago' : ' pagos') + ' de ' + money(cuota) + ' solo cubres ' + money(duracion * cuota) +
+        ' de los ' + money(total) + '. Lo normal serían ' + Math.ceil(total / cuota - 0.0001) + ' pagos.\n\n¿Guardar así de todos modos?');
+      if (!ok) return;
+    }
     withLoading(this, async function () {
       await apiFetch('/deudas', {
         method: 'POST',
@@ -602,7 +620,7 @@ function openDeudaDetalle(id) {
   let metodoPago = 'electronico';
   const tipoLabel = { unico: 'Pago único', mensual: 'Mensual', quincenal: 'Quincenal' }[d.tipo];
   const progresoHtml = (!d.pagada && d.tipo !== 'unico' && d.duracion)
-    ? '<div class="kv"><span class="kv-label">Progreso</span><span class="kv-value">' + (d.pagosRealizados || 0) + ' de ' + d.duracion + ' pagos</span></div>'
+    ? '<div class="kv"><span class="kv-label">Progreso</span><span class="kv-value">' + (d.pagosRealizados || 0) + ' de ' + d.duracion + ' pagados' + (d.pagada ? '' : ' · sigue el ' + Math.min((d.pagosRealizados || 0) + 1, d.duracion)) + '</span></div>'
     : '';
   const m = openModal(
     '<div class="sheet-title">' + escapeHtml(d.nombre) + '</div>' +

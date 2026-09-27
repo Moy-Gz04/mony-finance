@@ -186,7 +186,8 @@ function debtRowHtml(d) {
     badge = 'badge-soon';
   }
   const tipoLabel = { unico: 'Pago único', mensual: 'Mensual', quincenal: 'Quincenal' }[d.tipo];
-  const progreso = (d.tipo !== 'unico' && d.duracion) ? ' · pago ' + Math.min(d.pagosRealizados || 0, d.duracion) + ' de ' + d.duracion : '';
+  // El que sigue es el pago (realizados + 1) de N.
+  const progreso = (d.tipo !== 'unico' && d.duracion) ? ' · pago ' + Math.min((d.pagosRealizados || 0) + 1, d.duracion) + ' de ' + d.duracion : '';
   return (
     '<div class="row ' + pulse + '" onclick="openDeudaDetalle(\'' + d.id + '\')">' +
       '<div class="row-icon" style="background:var(--coral-dim); color:var(--coral);">' +

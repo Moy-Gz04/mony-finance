@@ -325,3 +325,8 @@
 .fab-asesor:active{transform:scale(.9); transition-duration:90ms;}
 .fab-asesor[hidden]{display:none;}
 @media (max-width:460px){ .fab-asesor{right:25px;} }
+
+/* Ventanas por encima del teclado del celular (ver motion.js) */
+.overlay{padding-bottom:var(--kb, 0px); transition:opacity 320ms var(--ease-glass), padding-bottom 250ms var(--ease-glass), backdrop-filter 420ms var(--ease-glass), -webkit-backdrop-filter 420ms var(--ease-glass);}
+.con-teclado .sheet{max-height:calc(var(--vvh, 100vh) - 24px); margin-bottom:8px;}
+.con-teclado .overlay.center .sheet{max-height:calc(var(--vvh, 100vh) - 32px);}

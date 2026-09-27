@@ -11,6 +11,12 @@
    única parte que habla con PurchaseEvaluator.
    ================================================================== */
 
+/* En celular no se pone el cursor al abrir: eso abre el teclado solo y
+   en iPhone tapa la ventana. Solo en compu (mouse) queda listo para escribir. */
+function enfocarSinTeclado() {
+  return window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+}
+
 function openModal(innerHtml, opts) {
   opts = opts || {};
   const root = document.getElementById('modal-root');
@@ -156,7 +162,7 @@ function openRegistroIA() {
       '<div class="ia-saldos"><span>Efectivo <b>' + money(state.saldo.efectivo) + '</b></span><span>Tarjeta <b>' + money(state.saldo.tarjeta) + '</b></span></div>' +
       '<button class="btn-primary" id="ia-analizar" style="margin-top:16px;">✦ Registrar</button>';
     const ta = document.getElementById('ia-texto');
-    ta.focus();
+    if (enfocarSinTeclado()) ta.focus();
     document.getElementById('ia-analizar').addEventListener('click', analizar);
   }
 
@@ -1073,7 +1079,7 @@ function openAsesor() {
     '<div class="hint">El precio es opcional; si no lo pones, estimo uno típico.</div>'
   );
   openAsesor._modal = m;
-  document.getElementById('asesor-pregunta').focus();
+  if (enfocarSinTeclado()) document.getElementById('asesor-pregunta').focus();
   document.getElementById('btn-asesor').addEventListener('click', preguntarAsesor);
   document.getElementById('asesor-pregunta').addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); preguntarAsesor(); }

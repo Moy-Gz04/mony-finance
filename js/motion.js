@@ -99,6 +99,30 @@
     };
   }
 
+  /* ---------- Teclado del celular ----------
+     En iPhone el teclado no achica la pantalla: tapa lo que esté abajo.
+     Con visualViewport se mide cuánto tapa y las ventanas se suben por
+     encima (--kb) y se ajustan al alto que queda visible (--vvh). */
+  if (window.visualViewport) {
+    const raizDoc = document.documentElement;
+    const ajustarTeclado = function () {
+      const vv = window.visualViewport;
+      const tapado = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      raizDoc.style.setProperty('--kb', tapado + 'px');
+      raizDoc.style.setProperty('--vvh', vv.height + 'px');
+      raizDoc.classList.toggle('con-teclado', tapado > 80);
+    };
+    visualViewport.addEventListener('resize', ajustarTeclado);
+    visualViewport.addEventListener('scroll', ajustarTeclado);
+    ajustarTeclado();
+    // Al enfocar un campo dentro de una ventana, que quede a la vista.
+    document.addEventListener('focusin', function (e) {
+      const sheet = e.target.closest && e.target.closest('.sheet');
+      if (!sheet) return;
+      setTimeout(function () { e.target.scrollIntoView({ block: 'center', behavior: reducir.matches ? 'auto' : 'smooth' }); }, 300);
+    });
+  }
+
   /* ---------- Arranque ---------- */
   moverPill();
   animarEntrada('inicio');

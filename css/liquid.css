@@ -1,0 +1,249 @@
+/* ==================================================================
+   NEXUSFIN · Liquid Glass
+   ------------------------------------------------------------------
+   Capa de diseño que va DESPUÉS de styles.css y lo afina:
+   - Un solo material de vidrio (translúcido, con borde que "atrapa"
+     la luz arriba y un reflejo que sigue al puntero en compu).
+   - Movimiento con propósito: las tarjetas se materializan al entrar
+     (desenfoque → nítido), la respuesta al tocar es inmediata, las
+     ventanas emergen desde su origen y los plegables se abren suave.
+   - Respeta reducir movimiento / transparencia / más contraste.
+   ================================================================== */
+
+:root{
+  /* Curvas: sin rebote por defecto (críticamente amortiguadas). */
+  --ease-glass:cubic-bezier(.22,.9,.25,1);
+  --ease-press:cubic-bezier(.3,.7,.4,1);
+  --dur-in:520ms;
+
+  /* Material */
+  --glass-fill:rgba(255,255,255,0.045);
+  --glass-fill-strong:rgba(255,255,255,0.075);
+  --glass-edge:rgba(255,255,255,0.16);
+  --glass-edge-top:rgba(255,255,255,0.42);
+  --glass-blur:blur(30px) saturate(180%);
+  --glass-shadow:0 24px 50px -24px rgba(0,0,0,0.65), 0 2px 6px -2px rgba(0,0,0,0.35);
+}
+
+/* ---------- Material de vidrio (tarjetas, filas, ventanas) ---------- */
+.card,
+.row{
+  background:
+    radial-gradient(420px circle at var(--mx, 20%) var(--my, -30%), rgba(255,255,255,0.10), transparent 45%),
+    linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.015) 42%, rgba(255,255,255,0.03)),
+    var(--glass-fill);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge-top),        /* luz que pega en el borde superior */
+    inset 0 -1px 0 rgba(255,255,255,0.04),
+    inset 0 0 0 1px rgba(255,255,255,0.02),
+    var(--glass-shadow);
+  transition:transform 380ms var(--ease-glass), box-shadow 380ms var(--ease-glass), border-color 250ms ease, background-color 250ms ease;
+}
+/* Borde con un leve tinte de marca, más sutil que antes */
+.card::before{
+  background:linear-gradient(135deg, rgba(0,230,195,0.28), rgba(255,255,255,0.10) 30%, transparent 58%, rgba(139,107,255,0.26));
+}
+.card::after{
+  left:10%; right:10%;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent);
+}
+.row{box-shadow:inset 0 1px 0 rgba(255,255,255,0.22), 0 14px 30px -20px rgba(0,0,0,0.6);}
+
+/* Respuesta inmediata al presionar (en el pointer-down) */
+.row:active,
+.fold > summary:active,
+.suple-row .stepper button:active:not(:disabled),
+.small-btn:active,
+.btn-primary:active,
+.btn-ghost:active,
+.cat-opt:active,
+.seg-opt:active,
+.ia-pago:active:not(:disabled),
+.ia-cta:active{
+  transform:scale(.97);
+  transition-duration:90ms;
+  transition-timing-function:var(--ease-press);
+}
+.small-btn, .btn-ghost, .cat-opt, .seg-opt, .ia-pago, .ia-cta{
+  transition:transform 280ms var(--ease-glass), background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+/* En compu: la tarjeta se eleva un poco y el reflejo sigue al puntero */
+@media (hover:hover) and (pointer:fine){
+  .card:hover, .row:hover{
+    border-color:rgba(255,255,255,0.24);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      inset 0 -1px 0 rgba(255,255,255,0.05),
+      0 30px 60px -26px rgba(0,0,0,0.7), 0 2px 8px -2px rgba(0,0,0,0.35);
+  }
+  .row:hover{transform:translateY(-1px);}
+}
+
+/* Botón principal: vidrio con color, no plano */
+.btn-primary{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%),
+    linear-gradient(120deg, var(--cyan), #00b89a);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.12), 0 12px 28px -12px rgba(0,230,195,0.6);
+  transition:transform 280ms var(--ease-glass), box-shadow 280ms var(--ease-glass), filter 200ms ease;
+}
+@media (hover:hover) and (pointer:fine){ .btn-primary:hover{filter:brightness(1.06);} }
+
+/* ---------- Encabezado: borde que se desvanece, no una línea dura ---------- */
+.topbar{
+  background:linear-gradient(180deg, rgba(12,17,27,0.86) 0%, rgba(12,17,27,0.55) 62%, transparent);
+  backdrop-filter:blur(14px) saturate(160%);
+  -webkit-backdrop-filter:blur(14px) saturate(160%);
+  -webkit-mask-image:linear-gradient(180deg, #000 72%, transparent);
+  mask-image:linear-gradient(180deg, #000 72%, transparent);
+}
+.icon-btn{
+  background:linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.02) 55%), var(--glass-fill);
+  border-color:var(--glass-edge);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), 0 8px 20px -12px rgba(0,0,0,0.6);
+  backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
+}
+
+/* ---------- Entrada: las tarjetas se materializan escalonadas ---------- */
+.view{animation:none;}
+.view.entrando > *{
+  animation:materializar var(--dur-in) var(--ease-glass) both;
+  animation-delay:calc(var(--i, 0) * 45ms);
+}
+@keyframes materializar{
+  from{opacity:0; transform:translateY(14px) scale(.985); filter:blur(8px);}
+  to{opacity:1; transform:none; filter:blur(0);}
+}
+
+/* ---------- Plegables: el contenido se despliega suave ---------- */
+.fold > summary{transition:background-color 200ms ease;}
+@media (hover:hover){ .fold > summary:hover{background:rgba(255,255,255,0.025);} }
+.fold[open] > .fold-body{animation:desplegar 360ms var(--ease-glass) both;}
+@keyframes desplegar{
+  from{opacity:0; transform:translateY(-6px); filter:blur(4px);}
+  to{opacity:1; transform:none; filter:blur(0);}
+}
+.fold-chev{transition:transform 360ms var(--ease-glass);}
+.stars-mini{display:inline-flex; gap:2px; margin-left:auto; flex:0 0 auto;}
+
+/* ---------- Ventanas: emergen como material, desde abajo ---------- */
+.overlay{
+  background:rgba(4,6,10,0.52);
+  backdrop-filter:blur(0px);
+  -webkit-backdrop-filter:blur(0px);
+  transition:opacity 320ms var(--ease-glass), backdrop-filter 420ms var(--ease-glass), -webkit-backdrop-filter 420ms var(--ease-glass);
+}
+.overlay.open{backdrop-filter:blur(10px) saturate(120%); -webkit-backdrop-filter:blur(10px) saturate(120%);}
+.sheet{
+  background:
+    linear-gradient(165deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 38%),
+    rgba(18,24,38,0.62);
+  backdrop-filter:blur(40px) saturate(180%);
+  -webkit-backdrop-filter:blur(40px) saturate(180%);
+  border:1px solid rgba(255,255,255,0.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), 0 -10px 60px -20px rgba(0,0,0,0.7);
+  transform:translateY(110%) scale(.96);
+  filter:blur(6px);
+  transition:transform 460ms var(--ease-glass), filter 360ms var(--ease-glass);
+  transform-origin:50% 100%;
+}
+.overlay.center .sheet{transform:translateY(18px) scale(.94); transform-origin:50% 60%;}
+.overlay.open .sheet{transform:none; filter:blur(0);}
+.sheet-handle{opacity:.7; background:rgba(255,255,255,0.35);}
+
+/* Campos de texto: vidrio hundido */
+.field input, .field select, .ia-input, .ia-monto, .ia-modal textarea{
+  background:rgba(0,0,0,0.18);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(255,255,255,0.05);
+}
+
+/* ---------- Menú inferior: vidrio líquido + píldora que se desliza ---------- */
+.tabbar{
+  background:
+    linear-gradient(170deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 50%),
+    rgba(10,14,22,0.42);
+  backdrop-filter:blur(34px) saturate(190%);
+  -webkit-backdrop-filter:blur(34px) saturate(190%);
+  border:1px solid rgba(255,255,255,0.16);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.38), 0 20px 44px -16px rgba(0,0,0,0.75);
+  isolation:isolate;
+}
+.tab-pill{
+  position:absolute; top:6px; bottom:6px; left:0; width:0; z-index:-1;
+  border-radius:18px;
+  background:
+    linear-gradient(170deg, rgba(255,255,255,0.22), rgba(255,255,255,0.04) 60%),
+    rgba(0,230,195,0.12);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.45), inset 0 0 0 1px rgba(0,230,195,0.28), 0 6px 16px -8px rgba(0,230,195,0.55);
+  transition:transform 440ms var(--ease-glass), width 440ms var(--ease-glass), opacity 200ms ease;
+  pointer-events:none;
+}
+.tab-btn{position:relative; transition:color 260ms ease;}
+.tab-btn svg{transition:transform 440ms var(--ease-glass);}
+.tab-btn.active svg{transform:translateY(-1px) scale(1.06);}
+.tab-btn:active svg{transform:scale(.9); transition-duration:90ms;}
+
+/* Botón flotante: gota de vidrio de color */
+.fab{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 55%),
+    linear-gradient(140deg, var(--cyan), var(--violet));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -2px 6px rgba(0,0,0,0.12), 0 16px 36px -10px rgba(0,230,195,0.55);
+  transition:transform 380ms var(--ease-glass), box-shadow 380ms var(--ease-glass);
+}
+.fab:active{transform:scale(.9); transition-duration:90ms;}
+
+/* Aviso flotante: también vidrio */
+.toast{
+  background:linear-gradient(170deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03)), rgba(16,22,34,0.7);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid rgba(255,255,255,0.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), 0 14px 30px -12px rgba(0,0,0,0.7);
+  transition:opacity 280ms var(--ease-glass), transform 420ms var(--ease-glass);
+}
+
+/* Sub-pestañas y segmentos: la opción activa como pastilla de vidrio */
+.subtabs, .seg{
+  background:rgba(0,0,0,0.16);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,0.3), inset 0 -1px 0 rgba(255,255,255,0.05);
+}
+.subtab, .seg-opt{transition:background-color 260ms var(--ease-glass), color 260ms ease, box-shadow 260ms ease, transform 280ms var(--ease-glass);}
+.subtab.active{box-shadow:inset 0 1px 0 rgba(255,255,255,0.5), 0 6px 16px -8px rgba(0,230,195,0.55);}
+
+/* Números que cambian: sin saltos de ancho */
+.hero-amount, .res-tile b, .fold-num, .row-value{font-variant-numeric:tabular-nums;}
+
+/* Pulso de urgencia: más discreto y lento */
+.row.pulse{animation:pulso-suave 2.8s ease-in-out infinite;}
+@keyframes pulso-suave{
+  0%,100%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.22), 0 14px 30px -20px rgba(0,0,0,0.6), 0 0 0 0 rgba(255,79,112,0);}
+  50%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.22), 0 14px 30px -20px rgba(0,0,0,0.6), 0 0 0 4px rgba(255,79,112,0.14);}
+}
+
+/* ---------- Accesibilidad ---------- */
+@media (prefers-reduced-motion: reduce){
+  .view.entrando > *{animation:aparecer 200ms ease both; animation-delay:0ms;}
+  @keyframes aparecer{from{opacity:0;} to{opacity:1;}}
+  .fold[open] > .fold-body{animation:aparecer 160ms ease both;}
+  .sheet, .overlay.center .sheet{transform:none; filter:none; transition:opacity 200ms ease;}
+  .overlay:not(.open) .sheet{opacity:0;}
+  .tab-pill{transition:opacity 150ms ease;}
+  .row.pulse{animation:none;}
+  .card, .row, .btn-primary, .fab{transition:none;}
+}
+@media (prefers-reduced-transparency: reduce){
+  .card, .row, .sheet, .tabbar, .toast, .icon-btn{
+    background:var(--surface-2);
+    backdrop-filter:none; -webkit-backdrop-filter:none;
+  }
+  .overlay.open{backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(4,6,10,0.85);}
+}
+@media (prefers-contrast: more){
+  .card, .row, .sheet, .tabbar{background:var(--surface); border-color:rgba(255,255,255,0.5);}
+  .row-sub, .fold-sub, .hint{color:var(--text);}
+}

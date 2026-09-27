@@ -49,11 +49,13 @@ function renderInicio() {
     document.getElementById('rating-big').textContent = rating.avg.toFixed(1) + '★';
     document.getElementById('rating-count').textContent = rating.count + ' compra' + (rating.count === 1 ? '' : 's') + ' evaluada' + (rating.count === 1 ? '' : 's');
     renderStars(homeStars, rating.avg, 21);
+    renderStars(document.getElementById('rating-stars-mini'), rating.avg, 12);
     document.getElementById('rating-mini').innerHTML = '<b class="pos">' + rating.avg.toFixed(1) + '★</b> · ' + rating.count + ' compra' + (rating.count === 1 ? '' : 's') + ' evaluada' + (rating.count === 1 ? '' : 's');
   } else {
     document.getElementById('rating-big').textContent = '—.—';
     document.getElementById('rating-count').textContent = 'Sin compras evaluadas aún';
     renderStars(homeStars, 0, 21);
+    renderStars(document.getElementById('rating-stars-mini'), 0, 12);
     document.getElementById('rating-mini').textContent = 'Sin compras evaluadas aún';
   }
 
@@ -62,17 +64,20 @@ function renderInicio() {
   const pend = state.deudas.filter(function (d) { return !d.pagada; })
     .sort(function (a, b) { return new Date(a.proximoPago) - new Date(b.proximoPago); })
     .slice(0, 3);
+  const subsProximas = (state.suscripciones || []).filter(function (s) { return s.activa && daysUntil(s.proximoCobro) <= 3; })
+    .sort(function (a, b) { return a.proximoCobro < b.proximoCobro ? -1 : 1; });
+  const totalPendientes = pend.length + subsProximas.length;
   const collapsed = !!state.config.pagosPendientesColapsado;
   header.innerHTML =
     '<div class="section-title section-title-toggle" onclick="toggleHomePagos()">' +
-      '<span>Próximos pagos' + (pend.length ? ' · ' + pend.length : '') + '</span>' +
+      '<span>Próximos pagos' + (totalPendientes ? ' · ' + totalPendientes : '') + '</span>' +
       '<svg class="chev ' + (collapsed ? 'closed' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>' +
     '</div>';
   list.hidden = collapsed;
-  if (!pend.length) {
-    list.innerHTML = '<div class="empty"><b>Sin pagos pendientes</b>Registra una deuda para activar los recordatorios.</div>';
+  if (!totalPendientes) {
+    list.innerHTML = '<div class="empty"><b>Sin pagos pendientes</b>Aquí verás tus deudas y las suscripciones que cobran en los próximos 3 días.</div>';
   } else {
-    list.innerHTML = pend.map(debtRowHtml).join('');
+    list.innerHTML = subsProximas.map(suscRowHtml).join('') + pend.map(debtRowHtml).join('');
   }
 
   const fe = state.fondoEmergencia;
@@ -153,7 +158,9 @@ function renderSuscripciones() {
     if (a.activa !== b.activa) return a.activa ? -1 : 1;
     return a.proximoCobro < b.proximoCobro ? -1 : 1;
   });
-  list.innerHTML = orden.map(function (s) {
+  list.innerHTML = orden.map(suscRowHtml).join('');
+}
+function suscRowHtml(s) {
     const c = catInfo(s.categoria);
     const dias = daysUntil(s.proximoCobro);
     let badge = '<span class="row-badge badge-ok">Cobra en ' + dias + ' días</span>';
@@ -167,7 +174,6 @@ function renderSuscripciones() {
       '<div class="row-body"><div class="row-title">' + escapeHtml(s.nombre) + '</div>' +
         '<div class="row-sub">' + freq + ' · ' + metodoLabel(s.metodo) + ' · ' + fmtDate(s.proximoCobro) + '</div>' + badge + '</div>' +
       '<div class="row-value">' + money(s.monto) + '</div></div>';
-  }).join('');
 }
 
 function debtRowHtml(d) {

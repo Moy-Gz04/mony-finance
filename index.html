@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/liquid.css">
 </head>
 <body>
 <div id="app">
@@ -94,6 +95,7 @@
           <details class="fold">
             <summary>
               <div class="fold-txt"><b>Calificación de tus compras</b><span class="fold-sub" id="rating-mini">Sin compras evaluadas aún</span></div>
+              <span class="stars stars-mini" id="rating-stars-mini" aria-hidden="true"></span>
               <svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
             </summary>
             <div class="fold-body rating-card">
@@ -294,5 +296,6 @@
 <script src="js/render.js"></script>
 <script src="js/modals.js"></script>
 <script src="js/app.js"></script>
+<script src="js/motion.js"></script>
 </body>
 </html>

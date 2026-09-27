@@ -345,3 +345,6 @@
 .hero-edit:active{transform:scale(.94); transition-duration:90ms;}
 .saldo-breakdown{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px;}
 .saldo-breakdown .saldo-pill{justify-content:center; width:100%; padding-block:9px; margin:0;}
+
+/* Logo BATFINANCE: más alargado que el anterior */
+.brand-logo{height:30px; max-width:230px; filter:drop-shadow(0 2px 8px rgba(0,0,0,0.45));}

@@ -360,9 +360,10 @@
     /* Bati-señal: haz dorado arriba */
     radial-gradient(46% 26% at 50% 4%, rgba(255,196,77,0.62), transparent 72%),
     radial-gradient(70% 34% at 50% -4%, rgba(242,160,40,0.35), transparent 70%),
-    /* Niebla azul noche a los lados */
-    radial-gradient(58% 36% at 0% 34%, rgba(38,62,110,0.70), transparent 72%),
-    radial-gradient(56% 34% at 100% 52%, rgba(30,48,92,0.72), transparent 72%),
+    /* Brillo blanco/plateado de la noche (luz de luna) a los lados */
+    radial-gradient(54% 32% at 0% 34%, rgba(214,222,236,0.30), transparent 72%),
+    radial-gradient(52% 32% at 100% 54%, rgba(192,200,214,0.32), transparent 72%),
+    radial-gradient(30% 16% at 88% 22%, rgba(255,255,255,0.20), transparent 70%),
     /* Reflejos bronce/ámbar como luces de la ciudad */
     radial-gradient(52% 30% at 12% 82%, rgba(176,110,38,0.50), transparent 70%),
     radial-gradient(48% 28% at 92% 96%, rgba(214,150,52,0.42), transparent 70%),

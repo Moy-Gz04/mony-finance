@@ -660,18 +660,33 @@ let supleRango = 14;        // días de la gráfica (14 o 30)
 let supleHoyAbierto = false;   // el registrador de hoy empieza plegado
 let supleListaAbierta = false; // igual la lista de suplementos
 
+/* Gym: la misma pantalla sirve para suplementos y ejercicios. */
+let gymTipo = 'suplemento';
+const GYM_TXT = {
+  suplemento: { unidad: 'g', toma: 'toma', tomas: 'tomas', porToma: 'por toma', uno: 'suplemento', varios: 'suplementos',
+    total: 'consumidos', cantidad: 'Cantidad por toma', unidades: ['g', 'cápsula', 'scoop', 'ml'], ejemplo: 'Ej. Omega 3', ejemploCant: 'Ej. 5',
+    hint: 'La gráfica suma los suplementos medidos en gramos.', grafica: 'Gramos de suplementos', vacioGrafica: 'Cuando marques tomas aparecerán aquí los gramos por día.' },
+  ejercicio: { unidad: 'reps', toma: 'serie', tomas: 'series', porToma: 'por serie', uno: 'ejercicio', varios: 'ejercicios',
+    total: 'repeticiones', cantidad: 'Repeticiones por serie', unidades: ['reps', 'min'], ejemplo: 'Ej. Sentadillas', ejemploCant: 'Ej. 15',
+    hint: 'Cada + suma una serie. La gráfica cuenta las repeticiones de cada día.', grafica: 'Repeticiones de ejercicio', vacioGrafica: 'Cuando marques series aparecerán aquí las repeticiones por día.' }
+};
+function G() { return GYM_TXT[gymTipo]; }
+function gymItems() {
+  return (state.suplementos || []).filter(function (s) { return (s.tipo || 'suplemento') === gymTipo; });
+}
+
 function tomaDe(supId, fecha) {
   const x = (state.tomasSuplementos || []).find(function (t) { return t.suplementoId === supId && t.fecha === fecha; });
   return x ? Number(x.cantidad) || 0 : 0;
 }
 function unidadTxt(n, unidad) {
-  if (unidad === 'g' || unidad === 'ml') return fmtNum(n) + ' ' + unidad;
+  if (unidad === 'g' || unidad === 'ml' || unidad === 'reps' || unidad === 'min') return fmtNum(n) + ' ' + unidad;
   return fmtNum(n) + ' ' + unidad + (n === 1 ? '' : (unidad === 'cápsula' ? 's' : 's'));
 }
 function fmtNum(n) { return Number(n).toLocaleString('es-MX', { maximumFractionDigits: 1 }); }
 function gramosDelDia(fecha) {
-  return (state.suplementos || []).reduce(function (s, sup) {
-    return sup.unidad === 'g' ? s + tomaDe(sup.id, fecha) * Number(sup.cantidadPorToma) : s;
+  return gymItems().reduce(function (s, sup) {
+    return sup.unidad === G().unidad ? s + tomaDe(sup.id, fecha) * Number(sup.cantidadPorToma) : s;
   }, 0);
 }
 function fechaLarga(fecha) {
@@ -681,17 +696,17 @@ function fechaLarga(fecha) {
 
 /* Filas con + / − para un día. Se usan en "Hoy" y en la ventana de un día. */
 function supleFilasDia(fecha) {
-  return (state.suplementos || []).map(function (s) {
+  return gymItems().map(function (s) {
     const n = tomaDe(s.id, fecha);
     const total = n * Number(s.cantidadPorToma);
     return '<div class="suple-row' + (n ? ' on' : '') + '" style="--sc:' + s.color + '">' +
       '<span class="suple-sw"></span>' +
       '<div class="suple-row-txt"><b>' + escapeHtml(s.nombre) + '</b>' +
-        '<span>' + (n ? n + (n === 1 ? ' toma' : ' tomas') + ' · ' + unidadTxt(total, s.unidad) : unidadTxt(Number(s.cantidadPorToma), s.unidad) + ' por toma') + '</span></div>' +
+        '<span>' + (n ? n + ' ' + (n === 1 ? G().toma : G().tomas) + ' · ' + unidadTxt(total, s.unidad) : unidadTxt(Number(s.cantidadPorToma), s.unidad) + ' ' + G().porToma) + '</span></div>' +
       '<div class="stepper">' +
-        '<button aria-label="Quitar una toma de ' + escapeHtml(s.nombre) + '"' + (n ? '' : ' disabled') + ' onclick="setToma(\'' + s.id + '\', \'' + fecha + '\', -1)">−</button>' +
+        '<button aria-label="Quitar una ' + G().toma + ' de ' + escapeHtml(s.nombre) + '"' + (n ? '' : ' disabled') + ' onclick="setToma(\'' + s.id + '\', \'' + fecha + '\', -1)">−</button>' +
         '<span>' + n + '</span>' +
-        '<button aria-label="Agregar una toma de ' + escapeHtml(s.nombre) + '" onclick="setToma(\'' + s.id + '\', \'' + fecha + '\', 1)">+</button>' +
+        '<button aria-label="Agregar una ' + G().toma + ' de ' + escapeHtml(s.nombre) + '" onclick="setToma(\'' + s.id + '\', \'' + fecha + '\', 1)">+</button>' +
       '</div></div>';
   }).join('');
 }
@@ -699,11 +714,15 @@ function supleFilasDia(fecha) {
 function renderSuplementos() {
   const hoyEl = document.getElementById('suple-hoy');
   if (!hoyEl) return;
-  const sups = state.suplementos || [];
+  const sups = gymItems();
+  const tituloLista = document.getElementById('gym-lista-titulo');
+  if (tituloLista) tituloLista.textContent = 'Tus ' + G().varios;
+  const tituloGrafica = document.getElementById('gym-grafica-titulo');
+  if (tituloGrafica) tituloGrafica.textContent = gymTipo === 'ejercicio' ? 'Repeticiones por día' : 'Consumo diario';
   const hoy = localISO();
 
   if (!sups.length) {
-    hoyEl.innerHTML = '<div class="empty" style="padding:8px 0;"><b>Sin suplementos</b>Agrega uno con el botón +.</div>';
+    hoyEl.innerHTML = '<div class="empty" style="padding:8px 0;"><b>Sin ' + G().varios + '</b>Agrega uno con el botón +.</div>';
     ['suple-cal', 'suple-chart', 'suple-list'].forEach(function (id) { document.getElementById(id).innerHTML = ''; });
     return;
   }
@@ -718,7 +737,7 @@ function renderSuplementos() {
           '<span class="fold-dots">' + sups.map(function (s) {
             return '<i' + (tomaDe(s.id, hoy) > 0 ? ' style="background:' + s.color + '"' : '') + ' title="' + escapeHtml(s.nombre) + '"></i>';
           }).join('') + '<em>' + tomadosHoy + ' de ' + sups.length + '</em></span></div>' +
-        '<b class="fold-num">' + fmtNum(g) + ' g</b>' +
+        '<b class="fold-num">' + fmtNum(g) + ' ' + G().unidad + '</b>' +
         '<svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>' +
       '</summary>' +
       '<div class="fold-body">' + supleFilasDia(hoy) + '</div>' +
@@ -756,30 +775,30 @@ function renderSuplementos() {
     '<div class="suple-legend">' + sups.map(function (s) {
       return '<span><i style="background:' + s.color + '"></i>' + escapeHtml(s.nombre) + '</span>';
     }).join('') + '</div>' +
-    '<div class="hint" style="margin-top:8px;">Toca un día para ver y editar lo que tomaste.</div>';
+    '<div class="hint" style="margin-top:8px;">Toca un día para ver y editar lo que ' + (gymTipo === 'ejercicio' ? 'hiciste' : 'tomaste') + '.</div>';
 
   renderSupleChart();
 
   /* ---- Lista para administrar ---- */
   document.getElementById('suple-list').innerHTML =
     '<details class="fold"' + (supleListaAbierta ? ' open' : '') + ' ontoggle="supleListaAbierta = this.open">' +
-      '<summary><div class="fold-txt"><b>' + sups.length + (sups.length === 1 ? ' suplemento' : ' suplementos') + '</b>' +
+      '<summary><div class="fold-txt"><b>' + sups.length + (sups.length === 1 ? ' ' + G().uno : ' ' + G().varios) + '</b>' +
         '<span class="fold-dots">' + sups.map(function (s) { return '<i style="background:' + s.color + '"></i>'; }).join('') + '<em>Editar o agregar</em></span></div>' +
         '<svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>' +
       '</summary><div class="fold-body">' + sups.map(function (s) {
     return '<div class="suple-row" style="--sc:' + s.color + '">' +
       '<span class="suple-sw on"></span>' +
-      '<div class="suple-row-txt"><b>' + escapeHtml(s.nombre) + '</b><span>' + unidadTxt(Number(s.cantidadPorToma), s.unidad) + ' por toma</span></div>' +
+      '<div class="suple-row-txt"><b>' + escapeHtml(s.nombre) + '</b><span>' + unidadTxt(Number(s.cantidadPorToma), s.unidad) + ' ' + G().porToma + '</span></div>' +
       '<button class="small-btn" onclick="openEditSuplemento(\'' + s.id + '\')">Editar</button></div>';
   }).join('') +
-  '<button class="small-btn primary" style="width:100%; margin-top:12px;" onclick="openAddSuplemento()">+ Agregar suplemento</button>' +
+  '<button class="small-btn primary" style="width:100%; margin-top:12px;" onclick="openAddSuplemento()">+ Agregar ' + G().uno + '</button>' +
     '</div></details>';
 }
 
 /* Barras apiladas de gramos por día (solo suplementos medidos en g). */
 function renderSupleChart() {
   const el = document.getElementById('suple-chart');
-  const sups = (state.suplementos || []).filter(function (s) { return s.unidad === 'g'; });
+  const sups = gymItems().filter(function (s) { return s.unidad === G().unidad; });
   const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
   const dias = [];
   for (let i = supleRango - 1; i >= 0; i--) { const d = new Date(hoy); d.setDate(hoy.getDate() - i); dias.push(localISO(d)); }
@@ -795,7 +814,7 @@ function renderSupleChart() {
   }).join('') + '</div>';
 
   if (!sups.length || maxG === 0) {
-    el.innerHTML = filtros + '<div class="empty" style="padding:10px 0;"><b>Sin consumo registrado</b>Cuando marques tomas aparecerán aquí los gramos por día.</div>';
+    el.innerHTML = filtros + '<div class="empty" style="padding:10px 0;"><b>Sin consumo registrado</b>' + G().vacioGrafica + '</div>';
     return;
   }
 
@@ -832,8 +851,8 @@ function renderSupleChart() {
   });
 
   el.innerHTML = filtros +
-    '<div class="suple-head" style="margin-bottom:6px;"><span>Total en ' + supleRango + ' días</span><b>' + fmtNum(totalRango) + ' g</b></div>' +
-    '<div class="ch-wrap"><svg viewBox="0 0 ' + W + ' ' + H + '" class="ch-svg" role="img" aria-label="Gramos de suplementos por día, últimos ' + supleRango + ' días">' + svg + '</svg>' +
+    '<div class="suple-head" style="margin-bottom:6px;"><span>Total en ' + supleRango + ' días</span><b>' + fmtNum(totalRango) + ' ' + G().unidad + '</b></div>' +
+    '<div class="ch-wrap"><svg viewBox="0 0 ' + W + ' ' + H + '" class="ch-svg" role="img" aria-label="' + G().grafica + ' por día, últimos ' + supleRango + ' días">' + svg + '</svg>' +
     '<div class="ch-tip" id="suple-tip" hidden></div></div>' +
     '<div class="suple-legend">' + sups.map(function (s) { return '<span><i style="background:' + s.color + '"></i>' + escapeHtml(s.nombre) + '</span>'; }).join('') + '</div>' +
     '<details class="ch-table"><summary>Ver como tabla</summary><table><thead><tr><th>Día</th>' +
@@ -852,8 +871,8 @@ function renderSupleChart() {
       const tot = d.partes.reduce(function (a, p) { return a + p.g; }, 0);
       tip.innerHTML = '<b>' + fechaLarga(d.fecha) + '</b>' +
         d.partes.filter(function (p) { return p.g > 0; }).map(function (p) {
-          return '<div><i style="background:' + p.s.color + '"></i>' + escapeHtml(p.s.nombre) + '<span>' + fmtNum(p.g) + ' g</span></div>';
-        }).join('') + '<div class="ch-tip-tot">Total<span>' + fmtNum(tot) + ' g</span></div>';
+          return '<div><i style="background:' + p.s.color + '"></i>' + escapeHtml(p.s.nombre) + '<span>' + fmtNum(p.g) + ' ' + G().unidad + '</span></div>';
+        }).join('') + '<div class="ch-tip-tot">Total<span>' + fmtNum(tot) + ' ' + G().unidad + '</span></div>';
       tip.hidden = false;
       const rb = r.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
       const x = rb.left + rb.width / 2 - wb.left;

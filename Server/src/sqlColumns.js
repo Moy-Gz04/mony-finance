@@ -48,7 +48,7 @@ const APUESTAS_COLS = `
 
 const APORTES_FONDO_COLS = `id, monto, fecha`;
 
-const SUPLEMENTOS_COLS = `id, nombre, orden, cantidad_por_toma AS "cantidadPorToma", unidad, color`;
+const SUPLEMENTOS_COLS = `id, nombre, orden, cantidad_por_toma AS "cantidadPorToma", unidad, color, tipo`;
 
 const TOMAS_SUPLEMENTO_COLS = `id, suplemento_id AS "suplementoId", fecha, cantidad`;
 

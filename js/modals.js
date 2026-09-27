@@ -1002,11 +1002,11 @@ function pintarSuple(fecha) {
 }
 function pintarDiaSuple(body, fecha) {
   const g = gramosDelDia(fecha);
-  const tomados = (state.suplementos || []).filter(function (s) { return tomaDe(s.id, fecha) > 0; }).length;
+  const tomados = gymItems().filter(function (s) { return tomaDe(s.id, fecha) > 0; }).length;
   body.innerHTML =
     '<div class="dia-resumen">' +
-      '<div><b>' + fmtNum(g) + ' g</b><span>consumidos</span></div>' +
-      '<div><b>' + tomados + ' / ' + (state.suplementos || []).length + '</b><span>suplementos</span></div>' +
+      '<div><b>' + fmtNum(g) + ' ' + G().unidad + '</b><span>' + G().total + '</span></div>' +
+      '<div><b>' + tomados + ' / ' + gymItems().length + '</b><span>' + G().varios + '</span></div>' +
     '</div>' + supleFilasDia(fecha);
 }
 function openDiaSuple(fecha) {
@@ -1022,20 +1022,21 @@ function openDiaSuple(fecha) {
 }
 
 function formSuplemento(s) {
-  s = s || { nombre: '', cantidadPorToma: '', unidad: 'g' };
-  return '<div class="field"><label>Nombre</label><input type="text" id="sup-nombre" placeholder="Ej. Omega 3" value="' + escapeHtml(s.nombre) + '"></div>' +
-    '<div class="field"><label>Cantidad por toma</label><input type="number" id="sup-cant" step="0.5" min="0" placeholder="Ej. 5" value="' + (s.cantidadPorToma === '' ? '' : Number(s.cantidadPorToma)) + '"></div>' +
+  s = s || { nombre: '', cantidadPorToma: '', unidad: G().unidades[0] };
+  return '<div class="field"><label>Nombre</label><input type="text" id="sup-nombre" placeholder="' + G().ejemplo + '" value="' + escapeHtml(s.nombre) + '"></div>' +
+    '<div class="field"><label>' + G().cantidad + '</label><input type="number" id="sup-cant" step="0.5" min="0" placeholder="' + G().ejemploCant + '" value="' + (s.cantidadPorToma === '' ? '' : Number(s.cantidadPorToma)) + '"></div>' +
     '<div class="field" style="margin-bottom:0;"><label>Unidad</label><div class="seg" id="sup-unidad">' +
-      ['g', 'cápsula', 'scoop', 'ml'].map(function (u) { return '<button class="seg-opt' + (s.unidad === u ? ' active' : '') + '" data-u="' + u + '">' + u + '</button>'; }).join('') +
+      G().unidades.map(function (u) { return '<button class="seg-opt' + (s.unidad === u ? ' active' : '') + '" data-u="' + u + '">' + u + '</button>'; }).join('') +
     '</div></div>' +
-    '<div class="hint">La gráfica suma los suplementos medidos en gramos.</div>';
+    '<div class="hint">' + G().hint + '</div>';
 }
 function leerFormSuplemento(m) {
   const act = m.overlay.querySelector('#sup-unidad .seg-opt.active');
   return {
     nombre: document.getElementById('sup-nombre').value.trim(),
     cantidadPorToma: parseFloat(document.getElementById('sup-cant').value),
-    unidad: act ? act.dataset.u : 'g'
+    unidad: act ? act.dataset.u : G().unidades[0],
+    tipo: gymTipo
   };
 }
 function activarUnidad(m) {
@@ -1046,29 +1047,29 @@ function activarUnidad(m) {
   });
 }
 function openAddSuplemento() {
-  const m = openModal('<div class="sheet-title">Nuevo suplemento</div>' + formSuplemento() +
+  const m = openModal('<div class="sheet-title">Nuevo ' + G().uno + '</div>' + formSuplemento() +
     '<button class="btn-primary" id="sup-save" style="margin-top:18px;">Agregar</button>');
   activarUnidad(m);
   document.getElementById('sup-save').addEventListener('click', function () {
     const d = leerFormSuplemento(m);
-    if (!d.nombre || !(d.cantidadPorToma > 0)) { toast('Completa nombre y cantidad por toma'); return; }
+    if (!d.nombre || !(d.cantidadPorToma > 0)) { toast('Completa nombre y ' + G().cantidad.toLowerCase()); return; }
     withLoading(this, async function () {
       await apiFetch('/suplementos', { method: 'POST', body: JSON.stringify(d) });
-      await refresh(); m.close(); toast('Suplemento agregado');
+      await refresh(); m.close(); toast((gymTipo === 'ejercicio' ? 'Ejercicio' : 'Suplemento') + ' agregado');
     });
   });
 }
 function openEditSuplemento(id) {
-  const s = (state.suplementos || []).find(function (x) { return x.id === id; }); if (!s) return;
+  const s = gymItems().find(function (x) { return x.id === id; }); if (!s) return;
   const dias = (state.tomasSuplementos || []).filter(function (x) { return x.suplementoId === id; }).length;
   const m = openModal('<div class="sheet-title">Editar ' + escapeHtml(s.nombre) + '</div>' + formSuplemento(s) +
     '<button class="btn-primary" id="sup-save" style="margin-top:18px;">Guardar</button>' +
-    '<button class="btn-ghost btn-danger" id="sup-del" style="width:100%; margin-top:10px;">Eliminar suplemento</button>' +
+    '<button class="btn-ghost btn-danger" id="sup-del" style="width:100%; margin-top:10px;">Eliminar ' + G().uno + '</button>' +
     '<div class="hint">Tiene ' + dias + (dias === 1 ? ' día registrado' : ' días registrados') + '; al eliminarlo se borra su historial.</div>');
   activarUnidad(m);
   document.getElementById('sup-save').addEventListener('click', function () {
     const d = leerFormSuplemento(m);
-    if (!d.nombre || !(d.cantidadPorToma > 0)) { toast('Completa nombre y cantidad por toma'); return; }
+    if (!d.nombre || !(d.cantidadPorToma > 0)) { toast('Completa nombre y ' + G().cantidad.toLowerCase()); return; }
     withLoading(this, async function () {
       await apiFetch('/suplementos/' + id, { method: 'PUT', body: JSON.stringify(d) });
       await refresh(); m.close(); toast('Guardado');
@@ -1078,7 +1079,7 @@ function openEditSuplemento(id) {
     if (!confirm('¿Eliminar ' + s.nombre + ' y todo su historial?')) return;
     withLoading(this, async function () {
       await apiFetch('/suplementos/' + id, { method: 'DELETE' });
-      await refresh(); m.close(); toast('Suplemento eliminado');
+      await refresh(); m.close(); toast((gymTipo === 'ejercicio' ? 'Ejercicio' : 'Suplemento') + ' eliminado');
     });
   });
 }

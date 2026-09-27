@@ -221,3 +221,18 @@ CREATE INDEX IF NOT EXISTS idx_suscripciones_user ON suscripciones(user_id);
 ALTER TABLE suscripciones DROP CONSTRAINT IF EXISTS suscripciones_frecuencia_check;
 ALTER TABLE suscripciones ADD CONSTRAINT suscripciones_frecuencia_check
   CHECK (frecuencia IN ('semanal','quincenal','mensual','anual'));
+
+-- ---------- Gym: ejercicios en la misma tabla que suplementos ----------
+-- tipo = 'suplemento' | 'ejercicio'. En ejercicios, cantidad_por_toma son
+-- las repeticiones por serie (unidad 'reps') y cada "toma" es una serie.
+ALTER TABLE suplementos ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'suplemento';
+
+INSERT INTO suplementos (user_id, nombre, orden, cantidad_por_toma, unidad, color, tipo)
+SELECT u.id, e.nombre, e.orden, e.reps, 'reps', e.color, 'ejercicio'
+FROM users u
+CROSS JOIN (VALUES
+  ('Abdominales', 1, 20, '#009E86'),
+  ('Flexiones',   2, 15, '#8B6BFF'),
+  ('Lagartijas',  3, 15, '#C97C22')
+) AS e(nombre, orden, reps, color)
+WHERE NOT EXISTS (SELECT 1 FROM suplementos x WHERE x.user_id = u.id AND x.tipo = 'ejercicio');

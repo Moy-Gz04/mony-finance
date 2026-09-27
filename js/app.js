@@ -77,6 +77,15 @@ function initPagosTabs() {
     });
   });
 }
+function initGymTabs() {
+  document.querySelectorAll('.gtab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      gymTipo = btn.dataset.gsub;
+      document.querySelectorAll('.gtab').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      renderSuplementos();
+    });
+  });
+}
 function initAsesor() {
   document.getElementById('fab-asesor').addEventListener('click', openAsesor);
 }
@@ -97,10 +106,10 @@ function initNavigation() {
     showView(currentView === 'config' ? 'inicio' : currentView);
   });
 
-  document.querySelectorAll('.subtab:not(.ptab)').forEach(function (btn) {
+  document.querySelectorAll('.subtab:not(.ptab):not(.gtab)').forEach(function (btn) {
     btn.addEventListener('click', function () {
       currentSub = btn.dataset.sub;
-      document.querySelectorAll('.subtab:not(.ptab)').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      document.querySelectorAll('.subtab:not(.ptab):not(.gtab)').forEach(function (b) { b.classList.toggle('active', b === btn); });
       document.getElementById('sub-gastos').hidden = currentSub !== 'gastos';
       document.getElementById('sub-ingresos').hidden = currentSub !== 'ingresos';
       document.getElementById('sub-plan').hidden = currentSub !== 'plan';
@@ -187,6 +196,7 @@ function initConfig() {
 (async function init() {
   initNavigation();
   initPagosTabs();
+  initGymTabs();
   initAsesor();
   initFab();
   initConfig();

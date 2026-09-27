@@ -170,13 +170,17 @@
 
       <!-- ===== SUPLEMENTOS ===== -->
       <section class="view" id="view-suple" hidden>
+        <div class="subtabs">
+          <button class="subtab gtab active" data-gsub="suplemento">Suplementos</button>
+          <button class="subtab gtab" data-gsub="ejercicio">Ejercicios</button>
+        </div>
         <div class="section-title">Hoy</div>
         <div class="card fold-card" id="suple-hoy"></div>
         <div class="section-title">Calendario</div>
         <div class="card" id="suple-cal"></div>
-        <div class="section-title">Consumo diario</div>
+        <div class="section-title" id="gym-grafica-titulo">Consumo diario</div>
         <div class="card" id="suple-chart"></div>
-        <div class="section-title">Tus suplementos</div>
+        <div class="section-title" id="gym-lista-titulo">Tus suplementos</div>
         <div class="card fold-card" id="suple-list"></div>
       </section>
 
@@ -270,8 +274,8 @@
         Apuestas
       </button>
       <button class="tab-btn" data-view="suple">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.8" y="8.2" width="18.4" height="7.6" rx="3.8" transform="rotate(-45 12 12)"/><path d="m9.3 9.3 5.4 5.4"/></svg>
-        Suples
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>
+        Gym
       </button>
     </nav>
   </div>

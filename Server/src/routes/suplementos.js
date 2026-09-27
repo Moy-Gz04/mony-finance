@@ -7,7 +7,8 @@ const router = express.Router();
 router.use(requireAuth);
 
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
-const UNIDADES = ['g', 'cápsula', 'scoop', 'ml'];
+const UNIDADES = ['g', 'cápsula', 'scoop', 'ml', 'reps', 'min'];
+const TIPOS = ['suplemento', 'ejercicio'];
 
 // Paleta validada (dark, contraste y daltonismo). Cada suplemento nuevo
 // toma el siguiente color según su orden; el color queda fijo al
@@ -35,13 +36,15 @@ router.post('/', async (req, res) => {
   const d = leerDatos(req.body || {});
   if (d.error) return res.status(400).json({ error: d.error });
   try {
+    // Suplementos y ejercicios llevan su propio orden y colores.
+    const tipo = TIPOS.includes((req.body || {}).tipo) ? req.body.tipo : 'suplemento';
     const orden = (await pool.query(
-      'SELECT COALESCE(MAX(orden), 0) + 1 AS n FROM suplementos WHERE user_id = $1', [req.userId]
+      'SELECT COALESCE(MAX(orden), 0) + 1 AS n FROM suplementos WHERE user_id = $1 AND tipo = $2', [req.userId, tipo]
     )).rows[0].n;
     const result = await pool.query(
-      `INSERT INTO suplementos (user_id, nombre, orden, cantidad_por_toma, unidad, color)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${SUPLEMENTOS_COLS}`,
-      [req.userId, d.nombre, orden, d.cantidadPorToma, d.unidad, PALETA[(orden - 1) % PALETA.length]]
+      `INSERT INTO suplementos (user_id, nombre, orden, cantidad_por_toma, unidad, color, tipo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${SUPLEMENTOS_COLS}`,
+      [req.userId, d.nombre, orden, d.cantidadPorToma, d.unidad, PALETA[(orden - 1) % PALETA.length], tipo]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {

@@ -59,6 +59,7 @@ function showView(name) {
   currentView = name;
   document.querySelectorAll('.view').forEach(function (v) { v.hidden = true; });
   document.getElementById('view-' + name).hidden = false;
+  document.getElementById('fab-asesor').hidden = name !== 'inicio';
   document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.view === name); });
   document.getElementById('content').scrollTop = 0;
   window.scrollTo(0, 0);
@@ -77,10 +78,7 @@ function initPagosTabs() {
   });
 }
 function initAsesor() {
-  document.getElementById('btn-asesor').addEventListener('click', preguntarAsesor);
-  document.getElementById('asesor-pregunta').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); preguntarAsesor(); }
-  });
+  document.getElementById('fab-asesor').addEventListener('click', openAsesor);
 }
 
 function initNavigation() {
@@ -91,6 +89,7 @@ function initNavigation() {
   document.getElementById('btn-settings').addEventListener('click', function () {
     document.querySelectorAll('.view').forEach(function (v) { v.hidden = true; });
     document.getElementById('view-config').hidden = false;
+    document.getElementById('fab-asesor').hidden = true;
     fillConfigForm();
   });
 

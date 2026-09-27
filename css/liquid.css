@@ -309,3 +309,19 @@
 
 @media (prefers-reduced-motion: reduce){ #app::before{animation:none;} }
 @media (prefers-reduced-transparency: reduce){ #app::before{opacity:.35;} }
+
+/* Botón del asesor: gota violeta, arriba del +; solo en Inicio */
+.fab-asesor{
+  position:fixed; right:calc(50% - 200px + 7px); bottom:calc(160px + var(--safe-bottom)); z-index:30;
+  width:44px; height:44px; border-radius:15px; border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; color:#fff;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%),
+    linear-gradient(140deg, var(--violet), #5b3fd9);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.55), 0 12px 28px -10px rgba(139,107,255,0.7);
+  transition:transform 380ms var(--ease-glass), opacity 250ms ease;
+}
+.fab-asesor:active{transform:scale(.9); transition-duration:90ms;}
+.fab-asesor[hidden]{display:none;}
+@media (max-width:460px){ .fab-asesor{right:25px;} }

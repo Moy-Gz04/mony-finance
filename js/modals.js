@@ -1060,6 +1060,25 @@ function openEditSuplemento(id) {
 }
 
 /* ---------------- ASESOR (Inicio) ---------------- */
+function openAsesor() {
+  const m = openModal(
+    '<div class="ia-marca">✦ Asesor</div>' +
+    '<div class="ia-q" style="margin-top:12px;">¿Lo compro o no?</div>' +
+    '<div class="ia-sub">Dime qué quieres comprar y te respondo con tus números reales: saldo, deudas, fondo, metas y lo que ya gastas en eso.</div>' +
+    '<textarea id="asesor-pregunta" rows="3" class="ia-input" placeholder="Ej. Quiero comprarme un perfume nuevo"></textarea>' +
+    '<div class="asesor-fila">' +
+      '<div class="ia-monto ia-monto-sm"><span>$</span><input type="number" id="asesor-precio" inputmode="decimal" min="0" placeholder="Precio" aria-label="Precio (opcional)"></div>' +
+      '<button class="btn-primary" id="btn-asesor">Preguntar</button>' +
+    '</div>' +
+    '<div class="hint">El precio es opcional; si no lo pones, estimo uno típico.</div>'
+  );
+  openAsesor._modal = m;
+  document.getElementById('asesor-pregunta').focus();
+  document.getElementById('btn-asesor').addEventListener('click', preguntarAsesor);
+  document.getElementById('asesor-pregunta').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); preguntarAsesor(); }
+  });
+}
 async function preguntarAsesor() {
   const pregunta = document.getElementById('asesor-pregunta').value.trim();
   const precio = parseFloat(document.getElementById('asesor-precio').value) || null;
@@ -1068,7 +1087,8 @@ async function preguntarAsesor() {
   btn.disabled = true; btn.textContent = 'Pensando…';
   try {
     const r = await apiFetch('/asesor', { method: 'POST', body: JSON.stringify({ pregunta: pregunta, precio: precio }) });
-    mostrarAsesor(r);
+    if (openAsesor._modal) openAsesor._modal.close();
+    setTimeout(function () { mostrarAsesor(r); }, 180);
   } catch (e) {
     toast(e.message || 'El asesor no respondió');
   } finally {

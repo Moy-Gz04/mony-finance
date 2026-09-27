@@ -9,7 +9,10 @@
 /* URL de tu backend en Render. Si alguna vez pruebas en local con
    npm start dentro de Server/, cambia esto temporalmente por
    'http://localhost:3000/api' y regrésalo después. */
-const API_BASE = 'https://mony-finance.onrender.com/api';
+// Abierta en localhost usa el servidor local (npm start en Server/, puerto 8781).
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8781/api'
+  : 'https://mony-finance.onrender.com/api';
 
 const TOKEN_KEY = 'nexusfin-token';
 
@@ -59,6 +62,8 @@ function defaultState() {
     metas: [],
     apuestas: [],
     aportesFondo: [],
+    suplementos: [],
+    tomasSuplementos: [],
     fondoEmergencia: { actual: 0, mesesObjetivo: 6, gastoMensual: 6000 },
     config: {
       tasaSofipoDefault: 12,
@@ -134,6 +139,13 @@ function money(n) {
 function moneyDec(n) {
   n = Number(n) || 0;
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/* Fecha LOCAL (no UTC) en YYYY-MM-DD: en México, después de las 6 pm
+   toISOString ya da el día siguiente. Los suplementos se registran por
+   día, así que aquí importa el día real del teléfono. */
+function localISO(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function addDays(dateStr, days) {

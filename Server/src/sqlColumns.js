@@ -48,6 +48,10 @@ const APUESTAS_COLS = `
 
 const APORTES_FONDO_COLS = `id, monto, fecha`;
 
+const SUPLEMENTOS_COLS = `id, nombre, orden, cantidad_por_toma AS "cantidadPorToma", unidad, color`;
+
+const TOMAS_SUPLEMENTO_COLS = `id, suplemento_id AS "suplementoId", fecha, cantidad`;
+
 module.exports = {
   INGRESOS_COLS,
   GASTOS_COLS,
@@ -55,5 +59,7 @@ module.exports = {
   INVERSIONES_COLS,
   METAS_COLS,
   APUESTAS_COLS,
-  APORTES_FONDO_COLS
+  APORTES_FONDO_COLS,
+  SUPLEMENTOS_COLS,
+  TOMAS_SUPLEMENTO_COLS
 };

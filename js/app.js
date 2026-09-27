@@ -102,6 +102,7 @@ function initFab() {
     else if (currentView === 'inversion') openAddInversion();
     else if (currentView === 'metas') openAddMeta();
     else if (currentView === 'apuestas') openAddApuesta();
+    else if (currentView === 'suple') openAddSuplemento();
     else openAddGasto();
   });
 }

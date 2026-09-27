@@ -74,6 +74,8 @@ function openAddGasto() {
   let metodo = 'electronico';
   const m = openModal(
     '<div class="sheet-title">Nueva compra / gasto</div>' +
+    '<button class="ia-cta" id="g-ia"><span class="ia-cta-ico">✦</span><span><b>Registro inteligente</b><small>Cuéntame lo que gastaste y registro cada compra solo</small></span></button>' +
+    '<div class="or-sep"><span>o captura a mano</span></div>' +
     '<div class="field"><label>¿Qué compraste?</label><input type="text" id="g-desc" placeholder="Ej. Mochila para el trabajo"></div>' +
     '<div class="field"><label>Categoría</label><div class="cat-grid" id="g-cats">' +
       CATEGORIAS.map(function (c) {
@@ -112,6 +114,10 @@ function openAddGasto() {
     }
     return { desc: desc, monto: monto, fecha: fecha, cat: selectedCat, metodo: metodo };
   }
+  document.getElementById('g-ia').addEventListener('click', function () {
+    m.close();
+    setTimeout(openRegistroIA, 180);
+  });
   document.getElementById('g-directo').addEventListener('click', function () {
     const d = collect(); if (!d) return;
     const btn = this;
@@ -128,6 +134,141 @@ function openAddGasto() {
     m.close();
     startWizard(d);
   });
+}
+
+/* ---------------- Registro inteligente (Gemini) ----------------
+   Un solo texto libre, aunque traiga varias compras. El servidor las
+   separa; si a alguna le falta monto o forma de pago se pregunta solo
+   eso, y luego se evalúan y registran todas (cada una por separado). */
+function openRegistroIA() {
+  let texto = '';
+  let compras = [];
+  const m = openModal('<div id="ia-body"></div>');
+  const body = function () { return document.getElementById('ia-body'); };
+  pintarTexto();
+
+  function pintarTexto() {
+    body().innerHTML =
+      '<div class="ia-marca">✦ Registro inteligente</div>' +
+      '<div class="ia-q" style="margin-top:12px;">¿Qué compraste?</div>' +
+      '<div class="ia-sub">Cuéntalo como se lo contarías a alguien: qué compraste, cuánto costó y si pagaste en efectivo o con tarjeta. Pueden ser varias compras.</div>' +
+      '<textarea id="ia-texto" rows="6" class="ia-input" placeholder="Ej. Me fui al trabajo en taxi, me cobró 70 en efectivo. En el Oxxo compré un Monster y galletas, 89 con tarjeta, y un chocolate para mi novia de 40 con tarjeta.">' + escapeHtml(texto) + '</textarea>' +
+      '<div class="ia-saldos"><span>Efectivo <b>' + money(state.saldo.efectivo) + '</b></span><span>Tarjeta <b>' + money(state.saldo.tarjeta) + '</b></span></div>' +
+      '<button class="btn-primary" id="ia-analizar" style="margin-top:16px;">✦ Registrar</button>';
+    const ta = document.getElementById('ia-texto');
+    ta.focus();
+    document.getElementById('ia-analizar').addEventListener('click', analizar);
+  }
+
+  async function analizar() {
+    texto = document.getElementById('ia-texto').value.trim();
+    if (texto.length < 3) { toast('Cuéntame qué compraste'); return; }
+    const btn = document.getElementById('ia-analizar');
+    btn.disabled = true; btn.textContent = 'Leyendo tus compras…';
+    try {
+      const r = await apiFetch('/ia/gastos/analizar', { method: 'POST', body: JSON.stringify({ texto: texto }) });
+      compras = r.compras;
+      if (compras.every(completa)) registrar();
+      else pintarRevision();
+    } catch (err) {
+      toast(err.message || 'No se pudo analizar');
+      btn.disabled = false; btn.textContent = '✦ Registrar';
+    }
+  }
+  function completa(c) { return c.monto > 0 && (c.metodo === 'efectivo' || c.metodo === 'electronico'); }
+
+  /* Solo se pide lo que falta; lo demás se muestra ya resuelto. */
+  function pintarRevision() {
+    body().innerHTML =
+      '<div class="ia-marca">✦ Registro inteligente</div>' +
+      '<div class="ia-q" style="margin-top:12px; font-size:19px;">Encontré ' + compras.length + (compras.length === 1 ? ' compra' : ' compras') + '</div>' +
+      '<div class="ia-sub">Completa lo que no mencionaste y las registro.</div>' +
+      compras.map(function (c, i) {
+        const cat = catInfo(c.categoria);
+        const faltaMonto = !(c.monto > 0), faltaMetodo = !c.metodo;
+        return '<div class="ia-item' + (completa(c) ? '' : ' falta') + '">' +
+          '<div class="ia-item-top"><span class="ia-item-cat" style="color:' + cat.color + '">' + cat.icon + '</span>' +
+            '<b>' + escapeHtml(c.descripcion) + '</b>' +
+            (faltaMonto ? '' : '<span class="ia-item-monto">' + moneyDec(c.monto) + '</span>') + '</div>' +
+          (faltaMonto ? '<div class="ia-item-ask"><label>¿Cuánto costó?</label><div class="ia-monto ia-monto-sm"><span>$</span><input type="number" inputmode="decimal" min="0" step="0.01" data-i="' + i + '" class="ia-m-in" placeholder="0"></div></div>' : '') +
+          (faltaMetodo
+            ? '<div class="ia-item-ask"><label>¿Cómo pagaste?</label><div class="seg" data-i="' + i + '">' +
+                '<button class="seg-opt" data-m="efectivo">Efectivo</button><button class="seg-opt" data-m="electronico">Tarjeta</button></div></div>'
+            : '<div class="ia-item-sub">' + cat.label + ' · ' + metodoLabel(c.metodo) + '</div>') +
+        '</div>';
+      }).join('') +
+      '<div class="btn-row" style="margin-top:16px;">' +
+        '<button class="small-btn" id="ia-editar" style="flex:1; padding:13px;">Editar texto</button>' +
+        '<button class="small-btn primary" id="ia-reg" style="flex:2; padding:13px;">Registrar ' + compras.length + '</button>' +
+      '</div>';
+    body().querySelectorAll('.ia-m-in').forEach(function (inp) {
+      inp.addEventListener('input', function () { compras[Number(inp.dataset.i)].monto = parseFloat(inp.value) || null; });
+    });
+    body().querySelectorAll('.ia-item .seg').forEach(function (seg) {
+      seg.querySelectorAll('.seg-opt').forEach(function (b) {
+        b.addEventListener('click', function () {
+          compras[Number(seg.dataset.i)].metodo = b.dataset.m;
+          seg.querySelectorAll('.seg-opt').forEach(function (x) { x.classList.toggle('active', x === b); });
+        });
+      });
+    });
+    document.getElementById('ia-editar').addEventListener('click', pintarTexto);
+    document.getElementById('ia-reg').addEventListener('click', function () {
+      if (!compras.every(completa)) { toast('Falta el monto o cómo pagaste en alguna compra'); return; }
+      registrar();
+    });
+  }
+
+  async function registrar() {
+    body().innerHTML =
+      '<div class="ia-marca">✦ Registro inteligente</div>' +
+      '<div class="ia-cargando"><span class="ia-spin"></span>Evaluando ' + compras.length + (compras.length === 1 ? ' compra' : ' compras') + ' con tu saldo…</div>';
+    try {
+      const r = await apiFetch('/ia/gastos/registrar', { method: 'POST', body: JSON.stringify({ texto: texto, fecha: localISO(), compras: compras }) });
+      await refresh();
+      resultados(r.gastos, r.restante);
+    } catch (err) {
+      if (err.data && err.data.error === 'fondos_insuficientes') { m.close(); mostrarAlertaFondos(err.data); return; }
+      toast(err.message || 'No se pudo registrar');
+      pintarRevision();
+    }
+  }
+
+  function resultados(gastos, restante) {
+    const total = gastos.reduce(function (s, g) { return s + Number(g.monto); }, 0);
+    const prom = gastos.reduce(function (s, g) { return s + Number(g.rating); }, 0) / gastos.length;
+    body().innerHTML =
+      '<div class="ia-marca">✦ ' + (gastos.length === 1 ? 'Compra registrada' : gastos.length + ' compras registradas') + '</div>' +
+      '<div class="ia-res-head"><div><b>' + moneyDec(total) + '</b><span>gastado</span></div>' +
+        '<div><b>' + prom.toFixed(1) + '★</b><span>calificación promedio</span></div></div>' +
+      gastos.map(function (g, k) {
+        const ev = g.evaluacion || {};
+        const c = catInfo(g.categoria);
+        return '<div class="ia-res">' +
+          '<div class="ia-ficha" style="margin:0;">' +
+            '<div class="ia-ficha-cat" style="background:' + c.color + '22; color:' + c.color + '">' + c.icon + '</div>' +
+            '<div class="ia-ficha-txt"><b>' + escapeHtml(g.descripcion) + '</b><span>' + c.label + ' · ' + metodoLabel(g.metodo) + '</span></div>' +
+            '<b class="ia-ficha-monto">' + moneyDec(g.monto) + '</b>' +
+          '</div>' +
+          '<div class="ia-res-eval"><span class="ia-stars" id="ia-st-' + k + '"></span>' +
+            '<b style="color:' + toneColor(ev.tone) + '">' + escapeHtml(ev.label || '') + '</b></div>' +
+          (ev.razones || []).map(function (x) { return '<div class="ia-razon">' + escapeHtml(x) + '</div>'; }).join('') +
+        '</div>';
+      }).join('') +
+      '<div class="hint" style="margin-top:4px;">Te quedan ' + money(restante.efectivo) + ' en efectivo y ' + money(restante.tarjeta) + ' en tarjeta.</div>' +
+      '<div class="btn-row" style="margin-top:16px;">' +
+        '<button class="small-btn" id="ia-deshacer" style="flex:1; padding:13px;">Deshacer ' + (gastos.length === 1 ? '' : 'todo') + '</button>' +
+        '<button class="small-btn primary" id="ia-listo" style="flex:2; padding:13px;">Listo</button>' +
+      '</div>';
+    gastos.forEach(function (g, k) { renderStars(document.getElementById('ia-st-' + k), Number(g.rating), 16); });
+    document.getElementById('ia-listo').addEventListener('click', m.close);
+    document.getElementById('ia-deshacer').addEventListener('click', function () {
+      withLoading(this, async function () {
+        for (const g of gastos) await apiFetch('/gastos/' + g.id, { method: 'DELETE' });
+        await refresh(); m.close(); toast('Registro deshecho, tu saldo quedó como estaba');
+      });
+    });
+  }
 }
 
 /* ---------------- Asistente de compra inteligente ----------------
@@ -803,6 +944,117 @@ function openAportarFondo() {
         method: 'POST', body: JSON.stringify({ monto: monto, metodo: metodo, descontar: descontar, fecha: todayISO() })
       });
       await refresh(); m.close(); toast('Fondo de emergencia actualizado');
+    });
+  });
+}
+
+/* ---------------- SUPLEMENTOS ---------------- */
+/* Suma o resta una toma de un día. Se pinta al instante (optimista) y
+   luego se sincroniza con lo que regresa el servidor. */
+async function setToma(supId, fecha, delta) {
+  const lista = state.tomasSuplementos || (state.tomasSuplementos = []);
+  const idx = lista.findIndex(function (x) { return x.suplementoId === supId && x.fecha === fecha; });
+  const actual = idx < 0 ? 0 : Number(lista[idx].cantidad) || 0;
+  const nueva = Math.max(0, actual + delta);
+  if (nueva === actual) return;
+  if (idx < 0) lista.push({ id: 'tmp', suplementoId: supId, fecha: fecha, cantidad: nueva });
+  else if (nueva === 0) lista.splice(idx, 1);
+  else lista[idx].cantidad = nueva;
+  pintarSuple(fecha);
+  try {
+    const r = await apiFetch('/suplementos/' + supId + '/toma', { method: 'POST', body: JSON.stringify({ fecha: fecha, cantidad: nueva }) });
+    state.tomasSuplementos = r.tomas;
+    pintarSuple(fecha);
+  } catch (e) {
+    toast(e.message || 'No se pudo guardar');
+    await refresh();
+    pintarSuple(fecha);
+  }
+}
+function pintarSuple(fecha) {
+  renderSuplementos();
+  const body = document.getElementById('dia-suple-body');
+  if (body && body.dataset.fecha === fecha) pintarDiaSuple(body, fecha);
+}
+function pintarDiaSuple(body, fecha) {
+  const g = gramosDelDia(fecha);
+  const tomados = (state.suplementos || []).filter(function (s) { return tomaDe(s.id, fecha) > 0; }).length;
+  body.innerHTML =
+    '<div class="dia-resumen">' +
+      '<div><b>' + fmtNum(g) + ' g</b><span>consumidos</span></div>' +
+      '<div><b>' + tomados + ' / ' + (state.suplementos || []).length + '</b><span>suplementos</span></div>' +
+    '</div>' + supleFilasDia(fecha);
+}
+function openDiaSuple(fecha) {
+  const m = openModal(
+    '<div class="sheet-title">' + fechaLarga(fecha) + '</div>' +
+    '<div id="dia-suple-body" data-fecha="' + fecha + '"></div>' +
+    '<button class="btn-primary" id="dia-ok" style="margin-top:18px;">Listo</button>',
+    { center: true }
+  );
+  m.overlay.querySelector('.sheet').classList.add('sheet-dia');
+  pintarDiaSuple(document.getElementById('dia-suple-body'), fecha);
+  document.getElementById('dia-ok').addEventListener('click', m.close);
+}
+
+function formSuplemento(s) {
+  s = s || { nombre: '', cantidadPorToma: '', unidad: 'g' };
+  return '<div class="field"><label>Nombre</label><input type="text" id="sup-nombre" placeholder="Ej. Omega 3" value="' + escapeHtml(s.nombre) + '"></div>' +
+    '<div class="field"><label>Cantidad por toma</label><input type="number" id="sup-cant" step="0.5" min="0" placeholder="Ej. 5" value="' + (s.cantidadPorToma === '' ? '' : Number(s.cantidadPorToma)) + '"></div>' +
+    '<div class="field" style="margin-bottom:0;"><label>Unidad</label><div class="seg" id="sup-unidad">' +
+      ['g', 'cápsula', 'scoop', 'ml'].map(function (u) { return '<button class="seg-opt' + (s.unidad === u ? ' active' : '') + '" data-u="' + u + '">' + u + '</button>'; }).join('') +
+    '</div></div>' +
+    '<div class="hint">La gráfica suma los suplementos medidos en gramos.</div>';
+}
+function leerFormSuplemento(m) {
+  const act = m.overlay.querySelector('#sup-unidad .seg-opt.active');
+  return {
+    nombre: document.getElementById('sup-nombre').value.trim(),
+    cantidadPorToma: parseFloat(document.getElementById('sup-cant').value),
+    unidad: act ? act.dataset.u : 'g'
+  };
+}
+function activarUnidad(m) {
+  m.overlay.querySelectorAll('#sup-unidad .seg-opt').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      m.overlay.querySelectorAll('#sup-unidad .seg-opt').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    });
+  });
+}
+function openAddSuplemento() {
+  const m = openModal('<div class="sheet-title">Nuevo suplemento</div>' + formSuplemento() +
+    '<button class="btn-primary" id="sup-save" style="margin-top:18px;">Agregar</button>');
+  activarUnidad(m);
+  document.getElementById('sup-save').addEventListener('click', function () {
+    const d = leerFormSuplemento(m);
+    if (!d.nombre || !(d.cantidadPorToma > 0)) { toast('Completa nombre y cantidad por toma'); return; }
+    withLoading(this, async function () {
+      await apiFetch('/suplementos', { method: 'POST', body: JSON.stringify(d) });
+      await refresh(); m.close(); toast('Suplemento agregado');
+    });
+  });
+}
+function openEditSuplemento(id) {
+  const s = (state.suplementos || []).find(function (x) { return x.id === id; }); if (!s) return;
+  const dias = (state.tomasSuplementos || []).filter(function (x) { return x.suplementoId === id; }).length;
+  const m = openModal('<div class="sheet-title">Editar ' + escapeHtml(s.nombre) + '</div>' + formSuplemento(s) +
+    '<button class="btn-primary" id="sup-save" style="margin-top:18px;">Guardar</button>' +
+    '<button class="btn-ghost btn-danger" id="sup-del" style="width:100%; margin-top:10px;">Eliminar suplemento</button>' +
+    '<div class="hint">Tiene ' + dias + (dias === 1 ? ' día registrado' : ' días registrados') + '; al eliminarlo se borra su historial.</div>');
+  activarUnidad(m);
+  document.getElementById('sup-save').addEventListener('click', function () {
+    const d = leerFormSuplemento(m);
+    if (!d.nombre || !(d.cantidadPorToma > 0)) { toast('Completa nombre y cantidad por toma'); return; }
+    withLoading(this, async function () {
+      await apiFetch('/suplementos/' + id, { method: 'PUT', body: JSON.stringify(d) });
+      await refresh(); m.close(); toast('Guardado');
+    });
+  });
+  document.getElementById('sup-del').addEventListener('click', function () {
+    if (!confirm('¿Eliminar ' + s.nombre + ' y todo su historial?')) return;
+    withLoading(this, async function () {
+      await apiFetch('/suplementos/' + id, { method: 'DELETE' });
+      await refresh(); m.close(); toast('Suplemento eliminado');
     });
   });
 }

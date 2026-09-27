@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
-const { INGRESOS_COLS, GASTOS_COLS, DEUDAS_COLS, INVERSIONES_COLS, METAS_COLS, APUESTAS_COLS, APORTES_FONDO_COLS } = require('../sqlColumns');
+const { INGRESOS_COLS, GASTOS_COLS, DEUDAS_COLS, INVERSIONES_COLS, METAS_COLS, APUESTAS_COLS, APORTES_FONDO_COLS, SUPLEMENTOS_COLS, TOMAS_SUPLEMENTO_COLS } = require('../sqlColumns');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -12,7 +12,7 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   const userId = req.userId;
   try {
-    const [saldo, config, fondo, ingresos, gastos, deudas, inversiones, metas, apuestas, aportesFondo] = await Promise.all([
+    const [saldo, config, fondo, ingresos, gastos, deudas, inversiones, metas, apuestas, aportesFondo, suplementos, tomasSuplementos] = await Promise.all([
       pool.query('SELECT efectivo, tarjeta FROM saldo WHERE user_id = $1', [userId]),
       pool.query('SELECT * FROM config WHERE user_id = $1', [userId]),
       pool.query('SELECT actual, meses_objetivo, gasto_mensual FROM fondo_emergencia WHERE user_id = $1', [userId]),
@@ -22,7 +22,9 @@ router.get('/', async (req, res) => {
       pool.query(`SELECT ${INVERSIONES_COLS} FROM inversiones WHERE user_id = $1`, [userId]),
       pool.query(`SELECT ${METAS_COLS} FROM metas WHERE user_id = $1`, [userId]),
       pool.query(`SELECT ${APUESTAS_COLS} FROM apuestas WHERE user_id = $1 ORDER BY fecha DESC`, [userId]),
-      pool.query(`SELECT ${APORTES_FONDO_COLS} FROM aportes_fondo WHERE user_id = $1 ORDER BY fecha DESC`, [userId])
+      pool.query(`SELECT ${APORTES_FONDO_COLS} FROM aportes_fondo WHERE user_id = $1 ORDER BY fecha DESC`, [userId]),
+      pool.query(`SELECT ${SUPLEMENTOS_COLS} FROM suplementos WHERE user_id = $1 ORDER BY orden, created_at`, [userId]),
+      pool.query(`SELECT ${TOMAS_SUPLEMENTO_COLS} FROM tomas_suplemento WHERE user_id = $1 ORDER BY fecha DESC`, [userId])
     ]);
 
     const c = config.rows[0] || {};
@@ -52,7 +54,9 @@ router.get('/', async (req, res) => {
       inversiones: inversiones.rows,
       metas: metas.rows,
       apuestas: apuestas.rows,
-      aportesFondo: aportesFondo.rows
+      aportesFondo: aportesFondo.rows,
+      suplementos: suplementos.rows,
+      tomasSuplementos: tomasSuplementos.rows
     });
   } catch (err) {
     console.error(err);

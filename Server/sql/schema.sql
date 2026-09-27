@@ -154,3 +154,48 @@ ALTER TABLE gastos ADD COLUMN IF NOT EXISTS seguimiento_fecha DATE;
 ALTER TABLE gastos ADD COLUMN IF NOT EXISTS seguimiento_respuesta TEXT
   CHECK (seguimiento_respuesta IN ('contento','neutral','arrepentido'));
 ALTER TABLE gastos ADD COLUMN IF NOT EXISTS seguimiento_hecho BOOLEAN NOT NULL DEFAULT false;
+
+-- ---------- Suplementos ----------
+-- Catálogo de suplementos que la persona toma (Proteína, Creatina...)
+-- y un registro por cada día en que tomó cada uno.
+CREATE TABLE IF NOT EXISTS suplementos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
+  dosis TEXT,
+  orden INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_suplementos_user ON suplementos(user_id);
+
+CREATE TABLE IF NOT EXISTS tomas_suplemento (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  suplemento_id UUID NOT NULL REFERENCES suplementos(id) ON DELETE CASCADE,
+  fecha DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (suplemento_id, fecha)
+);
+CREATE INDEX IF NOT EXISTS idx_tomas_suplemento_user ON tomas_suplemento(user_id);
+
+-- Tamaño de cada toma (ej. 1 scoop de creatina = 5 g), su unidad y el
+-- color con el que se pinta en el calendario y la gráfica.
+ALTER TABLE suplementos ADD COLUMN IF NOT EXISTS cantidad_por_toma NUMERIC(8,2) NOT NULL DEFAULT 1;
+ALTER TABLE suplementos ADD COLUMN IF NOT EXISTS unidad TEXT NOT NULL DEFAULT 'g';
+ALTER TABLE suplementos ADD COLUMN IF NOT EXISTS color TEXT;
+
+-- Cuántas tomas de ese suplemento hubo ese día (puede ser más de una).
+ALTER TABLE tomas_suplemento ADD COLUMN IF NOT EXISTS cantidad INTEGER NOT NULL DEFAULT 1;
+
+-- Suplementos iniciales para cada usuario que todavía no tenga ninguno.
+INSERT INTO suplementos (user_id, nombre, orden, cantidad_por_toma, unidad, color)
+SELECT u.id, s.nombre, s.orden, s.cant, s.unidad, s.color
+FROM users u
+CROSS JOIN (VALUES
+  ('Proteína Whey', 1, 20, 'g', '#009E86'),
+  ('Mass Gainer',   2, 20, 'g', '#8B6BFF'),
+  ('Creatina',      3,  5, 'g', '#C97C22'),
+  ('Vitamina E',    4,  1, 'cápsula', '#3D8FE8'),
+  ('Pre-entreno',   5,  1, 'scoop', '#E8456A')
+) AS s(nombre, orden, cant, unidad, color)
+WHERE NOT EXISTS (SELECT 1 FROM suplementos x WHERE x.user_id = u.id);

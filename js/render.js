@@ -567,6 +567,230 @@ function renderApuestas() {
 }
 
 /* ---------------- RENDER ALL ---------------- */
+/* ---------------- SUPLEMENTOS ---------------- */
+let supleMes = null;        // 'YYYY-MM' que muestra el calendario
+let supleRango = 14;        // días de la gráfica (14 o 30)
+let supleHoyAbierto = false;   // el registrador de hoy empieza plegado
+let supleListaAbierta = false; // igual la lista de suplementos
+
+function tomaDe(supId, fecha) {
+  const x = (state.tomasSuplementos || []).find(function (t) { return t.suplementoId === supId && t.fecha === fecha; });
+  return x ? Number(x.cantidad) || 0 : 0;
+}
+function unidadTxt(n, unidad) {
+  if (unidad === 'g' || unidad === 'ml') return fmtNum(n) + ' ' + unidad;
+  return fmtNum(n) + ' ' + unidad + (n === 1 ? '' : (unidad === 'cápsula' ? 's' : 's'));
+}
+function fmtNum(n) { return Number(n).toLocaleString('es-MX', { maximumFractionDigits: 1 }); }
+function gramosDelDia(fecha) {
+  return (state.suplementos || []).reduce(function (s, sup) {
+    return sup.unidad === 'g' ? s + tomaDe(sup.id, fecha) * Number(sup.cantidadPorToma) : s;
+  }, 0);
+}
+function fechaLarga(fecha) {
+  const t = new Date(fecha + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/* Filas con + / − para un día. Se usan en "Hoy" y en la ventana de un día. */
+function supleFilasDia(fecha) {
+  return (state.suplementos || []).map(function (s) {
+    const n = tomaDe(s.id, fecha);
+    const total = n * Number(s.cantidadPorToma);
+    return '<div class="suple-row' + (n ? ' on' : '') + '" style="--sc:' + s.color + '">' +
+      '<span class="suple-sw"></span>' +
+      '<div class="suple-row-txt"><b>' + escapeHtml(s.nombre) + '</b>' +
+        '<span>' + (n ? n + (n === 1 ? ' toma' : ' tomas') + ' · ' + unidadTxt(total, s.unidad) : unidadTxt(Number(s.cantidadPorToma), s.unidad) + ' por toma') + '</span></div>' +
+      '<div class="stepper">' +
+        '<button aria-label="Quitar una toma de ' + escapeHtml(s.nombre) + '"' + (n ? '' : ' disabled') + ' onclick="setToma(\'' + s.id + '\', \'' + fecha + '\', -1)">−</button>' +
+        '<span>' + n + '</span>' +
+        '<button aria-label="Agregar una toma de ' + escapeHtml(s.nombre) + '" onclick="setToma(\'' + s.id + '\', \'' + fecha + '\', 1)">+</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function renderSuplementos() {
+  const hoyEl = document.getElementById('suple-hoy');
+  if (!hoyEl) return;
+  const sups = state.suplementos || [];
+  const hoy = localISO();
+
+  if (!sups.length) {
+    hoyEl.innerHTML = '<div class="empty" style="padding:8px 0;"><b>Sin suplementos</b>Agrega uno con el botón +.</div>';
+    ['suple-cal', 'suple-chart', 'suple-list'].forEach(function (id) { document.getElementById(id).innerHTML = ''; });
+    return;
+  }
+
+  /* ---- Hoy ---- */
+  const g = gramosDelDia(hoy);
+  const tomadosHoy = sups.filter(function (s) { return tomaDe(s.id, hoy) > 0; }).length;
+  hoyEl.innerHTML =
+    '<details class="fold"' + (supleHoyAbierto ? ' open' : '') + ' ontoggle="supleHoyAbierto = this.open">' +
+      '<summary>' +
+        '<div class="fold-txt"><b>' + fechaLarga(hoy) + '</b>' +
+          '<span class="fold-dots">' + sups.map(function (s) {
+            return '<i' + (tomaDe(s.id, hoy) > 0 ? ' style="background:' + s.color + '"' : '') + ' title="' + escapeHtml(s.nombre) + '"></i>';
+          }).join('') + '<em>' + tomadosHoy + ' de ' + sups.length + '</em></span></div>' +
+        '<b class="fold-num">' + fmtNum(g) + ' g</b>' +
+        '<svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>' +
+      '</summary>' +
+      '<div class="fold-body">' + supleFilasDia(hoy) + '</div>' +
+    '</details>';
+
+  /* ---- Calendario del mes ---- */
+  if (!supleMes) supleMes = hoy.slice(0, 7);
+  const y = Number(supleMes.slice(0, 4)), mo = Number(supleMes.slice(5, 7));
+  const primero = new Date(y, mo - 1, 1, 12);
+  const diasMes = new Date(y, mo, 0).getDate();
+  const offset = (primero.getDay() + 6) % 7; // lunes = 0
+  const titulo = primero.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+  let celdas = '';
+  for (let i = 0; i < offset; i++) celdas += '<span></span>';
+  for (let d = 1; d <= diasMes; d++) {
+    const f = supleMes + '-' + String(d).padStart(2, '0');
+    const futuro = f > hoy;
+    const tomados = sups.filter(function (s) { return tomaDe(s.id, f) > 0; });
+    const etiqueta = fechaLarga(f) + ': ' + (tomados.length ? tomados.map(function (s) { return s.nombre; }).join(', ') : 'nada registrado');
+    celdas += '<button class="cal-day' + (f === hoy ? ' hoy' : '') + (futuro ? ' futuro' : '') + '"' +
+      (futuro ? ' disabled' : ' onclick="openDiaSuple(\'' + f + '\')"') + ' aria-label="' + escapeHtml(etiqueta) + '">' +
+      '<span class="cal-num">' + d + '</span>' +
+      '<span class="cal-bits">' + sups.map(function (s) {
+        return '<i' + (tomaDe(s.id, f) > 0 ? ' class="on" style="background:' + s.color + '"' : '') + '></i>';
+      }).join('') + '</span></button>';
+  }
+  const esMesActual = supleMes === hoy.slice(0, 7);
+  document.getElementById('suple-cal').innerHTML =
+    '<div class="cal-nav">' +
+      '<button class="icon-btn" aria-label="Mes anterior" onclick="moverMesSuple(-1)">‹</button>' +
+      '<b>' + titulo.charAt(0).toUpperCase() + titulo.slice(1) + '</b>' +
+      '<button class="icon-btn" aria-label="Mes siguiente"' + (esMesActual ? ' disabled' : '') + ' onclick="moverMesSuple(1)">›</button>' +
+    '</div>' +
+    '<div class="cal-grid">' + ['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(function (x) { return '<span class="cal-h">' + x + '</span>'; }).join('') + celdas + '</div>' +
+    '<div class="suple-legend">' + sups.map(function (s) {
+      return '<span><i style="background:' + s.color + '"></i>' + escapeHtml(s.nombre) + '</span>';
+    }).join('') + '</div>' +
+    '<div class="hint" style="margin-top:8px;">Toca un día para ver y editar lo que tomaste.</div>';
+
+  renderSupleChart();
+
+  /* ---- Lista para administrar ---- */
+  document.getElementById('suple-list').innerHTML =
+    '<details class="fold"' + (supleListaAbierta ? ' open' : '') + ' ontoggle="supleListaAbierta = this.open">' +
+      '<summary><div class="fold-txt"><b>' + sups.length + (sups.length === 1 ? ' suplemento' : ' suplementos') + '</b>' +
+        '<span class="fold-dots">' + sups.map(function (s) { return '<i style="background:' + s.color + '"></i>'; }).join('') + '<em>Editar o agregar</em></span></div>' +
+        '<svg class="fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>' +
+      '</summary><div class="fold-body">' + sups.map(function (s) {
+    return '<div class="suple-row" style="--sc:' + s.color + '">' +
+      '<span class="suple-sw on"></span>' +
+      '<div class="suple-row-txt"><b>' + escapeHtml(s.nombre) + '</b><span>' + unidadTxt(Number(s.cantidadPorToma), s.unidad) + ' por toma</span></div>' +
+      '<button class="small-btn" onclick="openEditSuplemento(\'' + s.id + '\')">Editar</button></div>';
+  }).join('') +
+  '<button class="small-btn primary" style="width:100%; margin-top:12px;" onclick="openAddSuplemento()">+ Agregar suplemento</button>' +
+    '</div></details>';
+}
+
+/* Barras apiladas de gramos por día (solo suplementos medidos en g). */
+function renderSupleChart() {
+  const el = document.getElementById('suple-chart');
+  const sups = (state.suplementos || []).filter(function (s) { return s.unidad === 'g'; });
+  const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
+  const dias = [];
+  for (let i = supleRango - 1; i >= 0; i--) { const d = new Date(hoy); d.setDate(hoy.getDate() - i); dias.push(localISO(d)); }
+
+  const datos = dias.map(function (f) {
+    return { fecha: f, partes: sups.map(function (s) { return { s: s, g: tomaDe(s.id, f) * Number(s.cantidadPorToma) }; }) };
+  });
+  const maxG = Math.max.apply(null, datos.map(function (d) { return d.partes.reduce(function (a, p) { return a + p.g; }, 0); }));
+  const totalRango = datos.reduce(function (a, d) { return a + d.partes.reduce(function (b, p) { return b + p.g; }, 0); }, 0);
+
+  const filtros = '<div class="seg" style="margin-bottom:14px;">' + [14, 30].map(function (n) {
+    return '<button class="seg-opt' + (supleRango === n ? ' active' : '') + '" onclick="rangoSuple(' + n + ')">' + n + ' días</button>';
+  }).join('') + '</div>';
+
+  if (!sups.length || maxG === 0) {
+    el.innerHTML = filtros + '<div class="empty" style="padding:10px 0;"><b>Sin consumo registrado</b>Cuando marques tomas aparecerán aquí los gramos por día.</div>';
+    return;
+  }
+
+  // Escala "bonita" para el eje Y.
+  const paso = [5, 10, 20, 25, 50, 100, 200, 250, 500].find(function (p) { return maxG / p <= 4; }) || 1000;
+  const top = Math.ceil(maxG / paso) * paso;
+  const W = 340, H = 190, L = 34, R = 6, T = 10, B = 24;
+  const pw = W - L - R, ph = H - T - B;
+  const bw = pw / dias.length;
+  const barW = Math.max(4, Math.min(18, bw * 0.62));
+  const yOf = function (g) { return T + ph - (g / top) * ph; };
+
+  let svg = '';
+  for (let v = 0; v <= top; v += paso) {
+    svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yOf(v) + '" y2="' + yOf(v) + '" class="ch-grid"/>' +
+      '<text x="' + (L - 6) + '" y="' + (yOf(v) + 3.5) + '" class="ch-ax" text-anchor="end">' + v + '</text>';
+  }
+  datos.forEach(function (d, i) {
+    const cx = L + bw * i + bw / 2;
+    let acc = 0;
+    const partes = d.partes.filter(function (p) { return p.g > 0; });
+    partes.forEach(function (p, k) {
+      const y1 = yOf(acc), y2 = yOf(acc + p.g);
+      const h = Math.max(1, y1 - y2 - (k < partes.length - 1 ? 2 : 0)); // 2px de separación entre segmentos
+      const esTope = k === partes.length - 1;
+      svg += esTope
+        ? '<path d="' + barraRedondeada(cx - barW / 2, y2, barW, h, Math.min(4, barW / 2)) + '" fill="' + p.s.color + '"/>'
+        : '<rect x="' + (cx - barW / 2) + '" y="' + y2 + '" width="' + barW + '" height="' + h + '" fill="' + p.s.color + '"/>';
+      acc += p.g;
+    });
+    const mostrarEtiqueta = supleRango === 14 ? (i % 2 === (dias.length - 1) % 2) : (i % 5 === (dias.length - 1) % 5);
+    if (mostrarEtiqueta) svg += '<text x="' + cx + '" y="' + (H - 8) + '" class="ch-ax" text-anchor="middle">' + Number(d.fecha.slice(8, 10)) + '</text>';
+    svg += '<rect x="' + (L + bw * i) + '" y="' + T + '" width="' + bw + '" height="' + ph + '" class="ch-hit" data-i="' + i + '"/>';
+  });
+
+  el.innerHTML = filtros +
+    '<div class="suple-head" style="margin-bottom:6px;"><span>Total en ' + supleRango + ' días</span><b>' + fmtNum(totalRango) + ' g</b></div>' +
+    '<div class="ch-wrap"><svg viewBox="0 0 ' + W + ' ' + H + '" class="ch-svg" role="img" aria-label="Gramos de suplementos por día, últimos ' + supleRango + ' días">' + svg + '</svg>' +
+    '<div class="ch-tip" id="suple-tip" hidden></div></div>' +
+    '<div class="suple-legend">' + sups.map(function (s) { return '<span><i style="background:' + s.color + '"></i>' + escapeHtml(s.nombre) + '</span>'; }).join('') + '</div>' +
+    '<details class="ch-table"><summary>Ver como tabla</summary><table><thead><tr><th>Día</th>' +
+      sups.map(function (s) { return '<th>' + escapeHtml(s.nombre) + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>' +
+      datos.slice().reverse().map(function (d) {
+        const tot = d.partes.reduce(function (a, p) { return a + p.g; }, 0);
+        return '<tr><td>' + fmtDate(d.fecha) + '</td>' + d.partes.map(function (p) { return '<td>' + (p.g ? fmtNum(p.g) : '—') + '</td>'; }).join('') + '<td><b>' + fmtNum(tot) + '</b></td></tr>';
+      }).join('') + '</tbody></table></details>';
+
+  // Tooltip por barra (hover en compu, toque en celular).
+  const tip = document.getElementById('suple-tip');
+  const wrap = el.querySelector('.ch-wrap');
+  el.querySelectorAll('.ch-hit').forEach(function (r) {
+    function mostrar() {
+      const d = datos[Number(r.dataset.i)];
+      const tot = d.partes.reduce(function (a, p) { return a + p.g; }, 0);
+      tip.innerHTML = '<b>' + fechaLarga(d.fecha) + '</b>' +
+        d.partes.filter(function (p) { return p.g > 0; }).map(function (p) {
+          return '<div><i style="background:' + p.s.color + '"></i>' + escapeHtml(p.s.nombre) + '<span>' + fmtNum(p.g) + ' g</span></div>';
+        }).join('') + '<div class="ch-tip-tot">Total<span>' + fmtNum(tot) + ' g</span></div>';
+      tip.hidden = false;
+      const rb = r.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
+      const x = rb.left + rb.width / 2 - wb.left;
+      tip.style.left = Math.max(4, Math.min(wb.width - tip.offsetWidth - 4, x - tip.offsetWidth / 2)) + 'px';
+      el.querySelectorAll('.ch-hit').forEach(function (o) { o.classList.toggle('sel', o === r); });
+    }
+    r.addEventListener('mouseenter', mostrar);
+    r.addEventListener('click', mostrar);
+  });
+  wrap.addEventListener('mouseleave', function () { tip.hidden = true; el.querySelectorAll('.ch-hit').forEach(function (o) { o.classList.remove('sel'); }); });
+}
+function barraRedondeada(x, y, w, h, r) {
+  r = Math.min(r, h);
+  return 'M' + x + ',' + (y + h) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y +
+    'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (y + h) + 'Z';
+}
+function moverMesSuple(delta) {
+  const y = Number(supleMes.slice(0, 4)), m = Number(supleMes.slice(5, 7));
+  const d = new Date(y, m - 1 + delta, 1, 12);
+  supleMes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  renderSuplementos();
+}
+function rangoSuple(n) { supleRango = n; renderSupleChart(); }
+
 function renderAll() {
   renderInicio();
   renderMovimientos();
@@ -574,4 +798,5 @@ function renderAll() {
   renderInversion();
   renderMetas();
   renderApuestas();
+  renderSuplementos();
 }

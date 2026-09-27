@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Conexión a PostgreSQL (Neon)
+   BATFINANCE · Conexión a PostgreSQL (Neon)
    ------------------------------------------------------------------
    Usa exclusivamente process.env.DATABASE_URL — nunca escribas la
    cadena de conexión aquí. En local va en tu archivo .env (que está

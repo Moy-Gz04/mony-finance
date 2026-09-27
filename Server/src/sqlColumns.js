@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Columnas SQL en camelCase
+   BATFINANCE · Columnas SQL en camelCase
    ------------------------------------------------------------------
    Postgres guarda las columnas en snake_case (monto_total,
    proximo_pago...) pero todo el front (render.js, modals.js) espera

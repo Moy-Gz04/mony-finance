@@ -1,5 +1,5 @@
 -- ============================================================
--- NEXUSFIN · Esquema de base de datos (PostgreSQL / Neon)
+-- BATFINANCE · Esquema de base de datos (PostgreSQL / Neon)
 -- ------------------------------------------------------------
 -- Mapea 1 a 1 el modelo de datos que ya tenía state.js en el
 -- front-end, pero ahora en tablas reales, una fila por usuario

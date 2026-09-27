@@ -1,7 +1,7 @@
 {
-  "name": "nexusfin-server",
+  "name": "batfinance-server",
   "version": "1.0.0",
-  "description": "API backend de NEXUSFIN — Node + Express + PostgreSQL (Neon)",
+  "description": "API backend de BATFINANCE — Node + Express + PostgreSQL (Neon)",
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {

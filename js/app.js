@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · APP
+   BATFINANCE · APP
    ------------------------------------------------------------------
    Punto de entrada: login (contra la API real), navegación entre
    vistas, botón flotante, configuración y arranque de la app.

@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Asesor de compras (Gemini)
+   BATFINANCE · Asesor de compras (Gemini)
    ------------------------------------------------------------------
    POST /api/asesor  { pregunta, precio? }
    "¿Me compro un perfume nuevo?" -> recomendación con TODOS los

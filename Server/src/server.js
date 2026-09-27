@@ -38,7 +38,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-app.get('/', (req, res) => res.json({ ok: true, service: 'nexusfin-server' }));
+app.get('/', (req, res) => res.json({ ok: true, service: 'batfinance-server' }));
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
@@ -66,5 +66,5 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`NEXUSFIN server escuchando en el puerto ${PORT}`);
+  console.log(`BATFINANCE server escuchando en el puerto ${PORT}`);
 });

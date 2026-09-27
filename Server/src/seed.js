@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Seed — crea el usuario inicial
+   BATFINANCE · Seed — crea el usuario inicial
    ------------------------------------------------------------------
    Lee ADMIN_USERNAME y ADMIN_PASSWORD de tus variables de entorno
    (.env en local, "Environment" en Render), genera el hash con

@@ -1,6 +1,6 @@
-# NEXUSFIN Server
+# BATFINANCE Server
 
-API backend de NEXUSFIN — Node.js + Express + PostgreSQL (Neon).
+API backend de BATFINANCE — Node.js + Express + PostgreSQL (Neon).
 
 ## 0. Antes que nada: resetea tu contraseña de Neon
 
@@ -12,7 +12,7 @@ debe darse por comprometida aunque "parezca" que nadie la vio.
 ## 1. Instalar dependencias
 
 ```bash
-cd nexusfin-server
+cd batfinance-server
 npm install
 ```
 
@@ -50,7 +50,7 @@ Crea el usuario de `ADMIN_USERNAME`/`ADMIN_PASSWORD` con la contraseña ya encri
 npm start
 ```
 
-Debe decir `NEXUSFIN server escuchando en el puerto 3000`. Prueba:
+Debe decir `BATFINANCE server escuchando en el puerto 3000`. Prueba:
 
 ```bash
 curl http://localhost:3000/health
@@ -69,14 +69,14 @@ curl -X POST http://localhost:3000/api/auth/login \
 3. Configuración:
    - **Build Command:** `npm install`
    - **Start Command:** `npm start`
-   - **Root Directory:** la carpeta `nexusfin-server` (si el repo tiene más cosas)
+   - **Root Directory:** la carpeta `batfinance-server` (si el repo tiene más cosas)
 4. En **Environment**, agrega las mismas variables de tu `.env` (`DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, etc.) — Render las inyecta en producción, nunca van en el código.
 5. Al desplegar, corre una sola vez la migración y el seed desde la pestaña **Shell** de Render:
    ```bash
    npm run migrate
    npm run seed
    ```
-6. Render te da una URL tipo `https://nexusfin-server.onrender.com`. Esa es tu `API_URL` para el front.
+6. Render te da una URL tipo `https://batfinance-server.onrender.com`. Esa es tu `API_URL` para el front.
 
 > Nota: el plan gratuito de Render "duerme" el servicio tras un rato sin uso — la primera petición después de inactividad puede tardar unos segundos en responder mientras arranca.
 

@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Registro inteligente de gastos (Gemini)
+   BATFINANCE · Registro inteligente de gastos (Gemini)
    ------------------------------------------------------------------
    Un solo texto libre puede traer VARIAS compras ("fui en taxi, 70 en
    efectivo; en el oxxo un monster y galletas, 89 con tarjeta...").

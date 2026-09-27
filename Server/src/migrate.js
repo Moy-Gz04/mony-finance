@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Migración
+   BATFINANCE · Migración
    ------------------------------------------------------------------
    Ejecuta sql/schema.sql contra la base de datos de DATABASE_URL.
    Uso:  npm run migrate

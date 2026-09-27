@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Llamada a Gemini (compartida)
+   BATFINANCE · Llamada a Gemini (compartida)
    ------------------------------------------------------------------
    Pide una respuesta JSON con el esquema dado. Gemini a veces responde
    503 "alta demanda": hasta 4 intentos rotando entre las llaves

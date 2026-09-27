@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Movimiento (Liquid Glass)
+   BATFINANCE · Movimiento (Liquid Glass)
    ------------------------------------------------------------------
    Se carga al final. No cambia datos ni lógica: solo envuelve
    showView / renderInicio para agregar movimiento.

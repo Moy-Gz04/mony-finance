@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Validación de fondos
+   BATFINANCE · Validación de fondos
    ------------------------------------------------------------------
    Antes de restar dinero de efectivo/tarjeta por cualquier motivo
    (gasto, inversión, pago de deuda, apuesta, aportación con

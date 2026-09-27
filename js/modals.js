@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · MODALS
+   BATFINANCE · MODALS
    ------------------------------------------------------------------
    Sistema de hojas modales + todos los formularios de "agregar/ver
    detalle". Cada acción llama a la API (apiFetch, de state.js) y

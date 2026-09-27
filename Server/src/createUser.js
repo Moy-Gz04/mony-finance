@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · Crear un usuario nuevo
+   BATFINANCE · Crear un usuario nuevo
    ------------------------------------------------------------------
    A diferencia de seed.js (que siempre usa ADMIN_USERNAME/PASSWORD
    del .env, pensado para el primer usuario), este script recibe el

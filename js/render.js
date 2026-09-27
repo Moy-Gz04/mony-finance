@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · RENDER
+   BATFINANCE · RENDER
    ------------------------------------------------------------------
    Todas las funciones que pintan datos en pantalla (lectura de
    `state` -> HTML). No agregan/editan datos — eso vive en modals.js.

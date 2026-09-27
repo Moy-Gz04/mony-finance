@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · PURCHASE EVALUATOR (v3)
+   BATFINANCE · PURCHASE EVALUATOR (v3)
    ------------------------------------------------------------------
    Motor de decisión "¿es una compra inteligente?" — AISLADO del resto
    de la app a propósito. No toca el DOM, no conoce colores ni CSS,

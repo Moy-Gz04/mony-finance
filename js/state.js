@@ -1,5 +1,5 @@
 /* ==================================================================
-   NEXUSFIN · STATE
+   BATFINANCE · STATE
    ------------------------------------------------------------------
    Modelo de datos + cliente de la API (Node/Express + Postgres en
    Render/Neon). Ya no se guarda nada de dinero en localStorage — solo
@@ -14,7 +14,7 @@ const API_BASE = (location.hostname === 'localhost' || location.hostname === '12
   ? 'http://localhost:8781/api'
   : 'https://mony-finance.onrender.com/api';
 
-const TOKEN_KEY = 'nexusfin-token';
+const TOKEN_KEY = 'batfinance-token';
 
 /* Iconos SVG tipo "outline", en la misma línea visual que el resto de la
    interfaz (stroke-width 1.7, sin relleno, esquinas redondeadas). Se

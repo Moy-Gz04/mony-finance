@@ -179,20 +179,30 @@
     const ritmo = completada ? '' : p.proyeccion
       ? 'A tu ritmo real (' + $m(p.ritmoMensual) + '/mes) llegas el ' + fechaLarga(p.proyeccion) + '.'
       : 'Aún no hay aportes recientes para medir tu ritmo.';
-    return '<div class="card meta-card' + (completada ? ' completa' : '') + '">' +
-      '<div class="meta-top"><b>' + escapeHtml(m.nombre) + '</b>' +
-        '<span class="chip-prio p-' + (m.prioridad || 'media') + '">' + NOMBRE_PRIO[m.prioridad || 'media'] + '</span>' +
-        '<span class="chip-estado ' + e.cls + '">' + e.txt + '</span></div>' +
-      '<div class="meta-nums"><span>' + $m(m.montoActual) + ' <em>de ' + $m(m.montoObjetivo) + '</em></span><span>' + Math.round(p.pct * 100) + '%</span></div>' +
-      '<div class="meta-barra"><i style="width:' + (p.pct * 100) + '%"></i>' +
-        (p.pctEsperado != null && !completada ? '<u style="left:' + (p.pctEsperado * 100) + '%" title="Donde deberías ir"></u>' : '') + '</div>' +
+    // Desplegable: cerrada muestra nombre, estado, % y barra; abierta, el plan y los botones
+    return '<details class="card meta-card' + (completada ? ' completa' : '') + '" data-id="' + m.id + '"' + (abiertas[m.id] ? ' open' : '') + ' ontoggle="metaToggle(this)">' +
+      '<summary class="meta-sum">' +
+        '<div class="meta-top"><b>' + escapeHtml(m.nombre) + '</b>' +
+          '<span class="chip-estado ' + e.cls + '">' + e.txt + '</span>' +
+          '<span class="meta-pct">' + Math.round(p.pct * 100) + '%</span>' +
+          '<svg class="meta-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+        '<div class="meta-barra"><i style="width:' + (p.pct * 100) + '%"></i>' +
+          (p.pctEsperado != null && !completada ? '<u style="left:' + (p.pctEsperado * 100) + '%" title="Donde deberías ir"></u>' : '') + '</div>' +
+      '</summary>' +
+      '<div class="meta-cuerpo">' +
+      '<div class="meta-nums"><span>' + $m(m.montoActual) + ' <em>de ' + $m(m.montoObjetivo) + '</em></span>' +
+        '<span class="chip-prio p-' + (m.prioridad || 'media') + '">Prioridad ' + NOMBRE_PRIO[m.prioridad || 'media'].toLowerCase() + '</span></div>' +
       '<div class="meta-plan">' + plan + '</div>' +
       (ritmo ? '<div class="meta-ritmo">' + ritmo + (p.viabilidad ? ' · <span class="v-' + p.viabilidad + '">' + VIABLE[p.viabilidad] + '</span>' : '') + '</div>' : '') +
       '<div class="btn-row" style="margin-top:12px;">' +
         (completada ? '' : '<button class="small-btn primary" style="flex:1" onclick="aportarMetaCon(\'' + m.id + '\', ' + (Math.ceil(p.cuotaQuincena) || 0) + ')">Aportar</button>') +
         '<button class="small-btn" style="flex:1" onclick="openMetaDetalle(\'' + m.id + '\')">Plan y consejo</button>' +
-      '</div></div>';
+      '</div></div></details>';
   }
+
+  // Qué metas quedaron abiertas (se conserva al refrescar)
+  const abiertas = {};
+  window.metaToggle = function (el) { abiertas[el.dataset.id] = el.open; };
 
   window.explicarCapacidad = function () {
     const c = capacidad();

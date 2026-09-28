@@ -716,3 +716,31 @@
 .pr-momio{white-space:nowrap; color:var(--text-dim);}
 .pr-aviso{margin:12px 0 0;}
 .apu-tabs{margin-bottom:14px;}
+
+/* ---------- Sin textos subrayados: todo lo que se toca es botón ---------- */
+.link-btn, .hero-edit, #wiz-toggle-detalle{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  text-decoration:none !important; padding:7px 14px !important; border-radius:10px !important;
+  font-size:12.5px !important; font-weight:700; line-height:1.2; cursor:pointer;
+  color:#F0C46A !important; background:rgba(232,176,75,.12) !important;
+  border:1px solid rgba(232,176,75,.35) !important;
+  transition:background .15s, transform .1s;
+}
+.link-btn:hover, .hero-edit:hover, #wiz-toggle-detalle:hover{background:rgba(232,176,75,.2) !important;}
+.link-btn:active, .hero-edit:active, #wiz-toggle-detalle:active{transform:scale(.97);}
+.link-btn:focus-visible, .hero-edit:focus-visible, #wiz-toggle-detalle:focus-visible{outline:2px solid #F0C46A; outline-offset:2px;}
+.pr-titulo .link-btn{letter-spacing:0; text-transform:none;}
+
+/* ---------- Metas desplegables ---------- */
+.meta-card{padding-block:14px;}
+.meta-sum{list-style:none; cursor:pointer;}
+.meta-sum::-webkit-details-marker{display:none;}
+.meta-sum::marker{content:'';}
+.meta-sum:focus-visible{outline:2px solid #F0C46A; outline-offset:4px; border-radius:8px;}
+.meta-sum .meta-barra{margin:10px 0 0;}
+.meta-pct{font-size:13px; font-weight:700; color:#F2F4F8; font-variant-numeric:tabular-nums;}
+.meta-chev{width:18px; height:18px; color:var(--text-dim); transition:transform .2s; flex:none;}
+.meta-card[open] .meta-chev{transform:rotate(180deg);}
+.meta-cuerpo{padding-top:12px;}
+.meta-cuerpo .meta-nums{align-items:center; margin:0 0 8px;}
+@media (prefers-reduced-motion: reduce){.meta-chev{transition:none;}}

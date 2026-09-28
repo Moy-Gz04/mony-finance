@@ -7,7 +7,7 @@
      se muestra la última copia guardada.
    - Notificaciones push: las muestra y al tocarlas abre la app.
    ================================================================== */
-const CACHE = 'batfinance-v5';
+const CACHE = 'batfinance-v6';
 const APP = [
   '/', '/index.html', '/manifest.webmanifest',
   '/css/styles.css', '/css/liquid.css',

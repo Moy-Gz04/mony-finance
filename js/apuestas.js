@@ -167,7 +167,7 @@
     if (cargando && !pronos) cuerpo = '<div class="ia-cargando" style="padding:18px 0;"><span class="ia-spin"></span>Buscando partidos y analizando…</div>';
     else if (errorPronos && !pronos) cuerpo = '<div class="hint" style="color:var(--coral);">' + escapeHtml(errorPronos) + '</div>';
     else if (!pronos) cuerpo = '';
-    else if (!pronos.partidos.length) cuerpo = '<div class="empty" style="padding:16px 0;"><b>Sin partidos cercanos</b>No hay juegos programados hoy ni en los próximos 2 días en las ligas que sigo.</div>';
+    else if (!pronos.partidos.length) cuerpo = '<div class="empty" style="padding:16px 0;"><b>Sin partidos cercanos</b>No hay partidos de fútbol hoy ni en los próximos 3 días en las ligas que sigo.</div>';
     else {
       let dia = '';
       cuerpo = pronos.partidos.map(function (p) {
@@ -186,14 +186,13 @@
               '<span class="pr-conf" title="Confianza"><i style="width:' + pr.confianza + '%"></i></span><small>' + pr.confianza + '%</small></div>' +
               '<div class="pr-razon">' + escapeHtml(pr.razon) + (p.momio ? ' <span class="pr-momio">Momio: ' + escapeHtml(p.momio) + '</span>' : '') + '</div>'
             : '<div class="pr-razon">Sin análisis por ahora' + (p.momio ? ' · Momio: ' + escapeHtml(p.momio) : '') + '</div>') +
-          '<button class="link-btn" onclick="apostarEn(\'' + p.id + '\')">Registrar apuesta</button>' +
         '</div>';
       }).join('');
     }
-    el.innerHTML = '<div class="section-title pr-titulo"><span>Pronosticador</span>' +
+    el.innerHTML = '<div class="section-title pr-titulo"><span>Partidos de fútbol</span>' +
         (pronos ? '<button class="link-btn" onclick="actualizarPronosticos()">' + (cargando ? 'Actualizando…' : 'Actualizar') + '</button>' : '') + '</div>' +
       '<div class="card pr-card">' + cuerpo +
-        '<div class="hint pr-aviso">Pronósticos hechos con IA a partir de récords y momios reales. Ningún resultado es seguro: apuesta solo lo que tengas dentro de tu tope.</div>' +
+        '<div class="hint pr-aviso">Pronósticos hechos con IA a partir de récords y momios reales. Son solo informativos y no se mezclan con tus apuestas ni tu dinero. Ningún resultado es seguro.</div>' +
       '</div>';
   }
   window.apostarEn = function (id) {
@@ -271,7 +270,22 @@
       const fila = document.querySelector('#apuestas-list .row[onclick*="' + a.id + '"] .row-sub');
       if (fila && (a.deporte || a.cuota)) fila.textContent += ' · ' + [a.deporte, a.tipo === 'parlay' ? 'Parlay' : null, a.cuota ? '@' + a.cuota : null].filter(Boolean).join(' · ');
     });
-    if (!pronos && !cargando && !errorPronos) cargarPronos(false); else pintarPronos();
+    if (pestana === 'pronos') abrirPronos();
   };
+
+  /* ---------------- Pestañas: Mis apuestas / Pronósticos ---------------- */
+  let pestana = 'mis';
+  try { pestana = localStorage.getItem('apu-tab') || 'mis'; } catch (e) {}
+  function abrirPronos() { if (!pronos && !cargando && !errorPronos) cargarPronos(false); else pintarPronos(); }
+  function cambiarPestana(v) {
+    pestana = v;
+    try { localStorage.setItem('apu-tab', v); } catch (e) {}
+    document.querySelectorAll('#apu-tabs .seg-opt').forEach(function (b) { b.classList.toggle('active', b.dataset.v === v); b.setAttribute('aria-selected', b.dataset.v === v); });
+    document.getElementById('apu-panel-mis').hidden = v !== 'mis';
+    document.getElementById('apu-panel-pronos').hidden = v !== 'pronos';
+    if (v === 'pronos') abrirPronos();
+  }
+  document.querySelectorAll('#apu-tabs .seg-opt').forEach(function (b) { b.addEventListener('click', function () { cambiarPestana(b.dataset.v); }); });
+  cambiarPestana(pestana);
   window.renderApuestas.resumen = resumen;
 })();

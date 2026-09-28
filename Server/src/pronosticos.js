@@ -11,20 +11,27 @@ const pool = require('./db');
 const { preguntarGemini, hayLlave } = require('./gemini');
 const { hoyMX } = require('./automatico');
 
+// Solo fútbol
 const LIGAS = [
-  ['soccer/mex.1', 'Liga MX', 'Fútbol'],
-  ['soccer/uefa.champions', 'Champions League', 'Fútbol'],
-  ['soccer/eng.1', 'Premier League', 'Fútbol'],
-  ['soccer/esp.1', 'LaLiga', 'Fútbol'],
-  ['soccer/ita.1', 'Serie A', 'Fútbol'],
-  ['soccer/ger.1', 'Bundesliga', 'Fútbol'],
-  ['soccer/usa.1', 'MLS', 'Fútbol'],
-  ['soccer/uefa.europa', 'Europa League', 'Fútbol'],
-  ['football/nfl', 'NFL', 'Fútbol americano'],
-  ['basketball/nba', 'NBA', 'Básquetbol'],
-  ['baseball/mlb', 'MLB', 'Béisbol']
-];
-const MAX_PARTIDOS = 14;
+  ['soccer/mex.1', 'Liga MX'],
+  ['soccer/uefa.champions', 'Champions League'],
+  ['soccer/eng.1', 'Premier League'],
+  ['soccer/esp.1', 'LaLiga'],
+  ['soccer/ita.1', 'Serie A'],
+  ['soccer/ger.1', 'Bundesliga'],
+  ['soccer/fra.1', 'Ligue 1'],
+  ['soccer/uefa.europa', 'Europa League'],
+  ['soccer/usa.1', 'MLS'],
+  ['soccer/conmebol.libertadores', 'Libertadores'],
+  ['soccer/concacaf.champions', 'Concachampions'],
+  ['soccer/por.1', 'Liga Portugal'],
+  ['soccer/ned.1', 'Eredivisie'],
+  ['soccer/arg.1', 'Liga Argentina'],
+  ['soccer/bra.1', 'Brasileirão'],
+  ['soccer/mex.2', 'Liga de Expansión MX']
+].map(([ruta, liga]) => [ruta, liga, 'Fútbol']);
+const VERSION = 3; // cambia si cambian las ligas: invalida la caché del día
+const MAX_PARTIDOS = 20;
 const VIGENCIA_MS = 3 * 60 * 60 * 1000;   // 3 h
 const MIN_FORZAR_MS = 20 * 60 * 1000;     // actualizar a mano: máximo cada 20 min
 
@@ -74,15 +81,15 @@ async function traerLiga([ruta, liga, deporte], dia) {
 
 async function armar() {
   const hoy = hoyMX();
-  const hasta = masDias(hoy, 2);
-  const dias = [hoy, masDias(hoy, 1), hasta];
+  const hasta = masDias(hoy, 3);
+  const dias = [hoy, masDias(hoy, 1), masDias(hoy, 2), hasta];
   const vistos = new Set();
   const todos = (await Promise.all(LIGAS.flatMap((l) => dias.map((d) => traerLiga(l, d))))).flat()
     .filter((p) => !vistos.has(p.id) && vistos.add(p.id))
     .filter((p) => p.estado !== 'post' && p.dia >= hoy && p.dia <= hasta)
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
   const partidos = todos.slice(0, MAX_PARTIDOS);
-  if (!partidos.length) return { fecha: hoy, generado: new Date().toISOString(), partidos: [] };
+  if (!partidos.length) return { v: VERSION, fecha: hoy, generado: new Date().toISOString(), partidos: [] };
 
   let analisis = {};
   if (hayLlave()) {
@@ -92,7 +99,7 @@ async function armar() {
       partidos.map((p) => p.id + ' · ' + p.liga + ' · ' + p.visita + (p.recVisita ? ' (' + p.recVisita + ')' : '') +
         ' visita a ' + p.local + (p.recLocal ? ' (' + p.recLocal + ')' : '') +
         (p.momio ? ' · momio ' + p.momio : '') + (p.overUnder ? ' · total ' + p.overUnder : '')).join('\n') +
-      '\n\nPara cada partido devuelve: "id"; "pick" (nombre exacto de un equipo o "Empate" en fútbol); ' +
+      '\n\nPara cada partido devuelve: "id"; "pick" (nombre exacto de un equipo o "Empate"); ' +
       '"confianza" de 35 a 75 (se honesto: con pocos datos, baja; ningún partido es seguro); ' +
       '"razon" en 1 frase corta en español con el dato que la sustenta; ' +
       '"marcador" probable (ej. "2-1", local primero).';
@@ -124,6 +131,7 @@ async function armar() {
     }
   }
   return {
+    v: VERSION,
     fecha: hoy,
     generado: new Date().toISOString(),
     partidos: partidos.map((p) => Object.assign({}, p, { pronostico: analisis[p.id] || null }))
@@ -136,7 +144,7 @@ async function pronosticosDelDia(forzar) {
   if (r.rows.length) {
     const edad = Date.now() - new Date(r.rows[0].created_at).getTime();
     const conIA = (r.rows[0].datos.partidos || []).some((p) => p.pronostico);
-    if (edad < VIGENCIA_MS && conIA && !(forzar && edad > MIN_FORZAR_MS)) return r.rows[0].datos;
+    if (r.rows[0].datos.v === VERSION && edad < VIGENCIA_MS && conIA && !(forzar && edad > MIN_FORZAR_MS)) return r.rows[0].datos;
   }
   const datos = await armar();
   await pool.query(

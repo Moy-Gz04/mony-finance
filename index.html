@@ -177,13 +177,21 @@
 
       <!-- ===== APUESTAS ===== -->
       <section class="view" id="view-apuestas" hidden>
-        <div class="card" id="apuestas-chart"></div>
-        <div id="apuestas-limite"></div>
-        <div id="apuestas-pronos"></div>
-        <div id="apuestas-costo"></div>
-        <div id="apuestas-analisis"></div>
-        <div class="section-title">Historial de apuestas</div>
-        <div id="apuestas-list"></div>
+        <div class="seg apu-tabs" id="apu-tabs" role="tablist">
+          <button class="seg-opt active" data-v="mis" role="tab">Mis apuestas</button>
+          <button class="seg-opt" data-v="pronos" role="tab">Pronósticos ⚽</button>
+        </div>
+        <div id="apu-panel-mis">
+          <div class="card" id="apuestas-chart"></div>
+          <div id="apuestas-limite"></div>
+          <div id="apuestas-costo"></div>
+          <div id="apuestas-analisis"></div>
+          <div class="section-title">Historial de apuestas</div>
+          <div id="apuestas-list"></div>
+        </div>
+        <div id="apu-panel-pronos" hidden>
+          <div id="apuestas-pronos"></div>
+        </div>
       </section>
 
       <!-- ===== SUPLEMENTOS ===== -->

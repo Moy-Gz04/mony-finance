@@ -53,7 +53,8 @@ router.get('/', async (req, res) => {
           inversion: Number(c.distribucion_inversion)
         },
         ingresoMensualFijo: Number(c.ingreso_mensual_fijo),
-        pagosPendientesColapsado: c.pagos_pendientes_colapsado
+        pagosPendientesColapsado: c.pagos_pendientes_colapsado,
+        presupuestoApuestas: Number(c.presupuesto_apuestas || 0)
       },
       fondoEmergencia: {
         actual: Number(f.actual),

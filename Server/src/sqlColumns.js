@@ -48,7 +48,8 @@ const APUESTAS_COLS = `
   id, descripcion,
   monto_apostado AS "montoApostado",
   fecha, estado,
-  monto_ganado AS "montoGanado"
+  monto_ganado AS "montoGanado",
+  cuota::float AS cuota, tipo, deporte
 `;
 
 const APORTES_FONDO_COLS = `id, monto, fecha`;

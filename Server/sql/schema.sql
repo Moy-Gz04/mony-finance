@@ -353,3 +353,15 @@ CREATE TABLE IF NOT EXISTS aportes_meta (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_aportes_meta_user ON aportes_meta(user_id);
+
+-- ---------- Apuestas: balance real, límites y pronósticos ----------
+ALTER TABLE apuestas ADD COLUMN IF NOT EXISTS cuota NUMERIC(8,2);
+ALTER TABLE apuestas ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'sencilla';
+ALTER TABLE apuestas ADD COLUMN IF NOT EXISTS deporte TEXT;
+ALTER TABLE config ADD COLUMN IF NOT EXISTS presupuesto_apuestas NUMERIC(10,2) NOT NULL DEFAULT 0;
+-- Caché global del pronosticador (mismos partidos para todos; se renueva cada pocas horas)
+CREATE TABLE IF NOT EXISTS pronosticos (
+  fecha DATE PRIMARY KEY,
+  datos JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
   try {
     // Antes de responder, se aplica lo automático (ingresos y cobros que ya tocaron).
     await procesarAutomaticos(userId);
-    const [saldo, config, fondo, ingresos, gastos, deudas, inversiones, metas, apuestas, aportesFondo, suplementos, tomasSuplementos, suscripciones, recurrentes, automaticos, asesorHist, presupuestos, patrimonio] = await Promise.all([
+    const [saldo, config, fondo, ingresos, gastos, deudas, inversiones, metas, apuestas, aportesFondo, suplementos, tomasSuplementos, suscripciones, recurrentes, automaticos, asesorHist, presupuestos, patrimonio, aportesMetas] = await Promise.all([
       pool.query('SELECT efectivo, tarjeta FROM saldo WHERE user_id = $1', [userId]),
       pool.query('SELECT * FROM config WHERE user_id = $1', [userId]),
       pool.query('SELECT actual, meses_objetivo, gasto_mensual FROM fondo_emergencia WHERE user_id = $1', [userId]),
@@ -35,7 +35,8 @@ router.get('/', async (req, res) => {
       pool.query("SELECT id, tipo, nombre, monto, fecha, estado, created_at AS \"creado\" FROM movimientos_auto WHERE user_id = $1 AND NOT visto AND created_at > now() - interval '10 days' ORDER BY created_at DESC", [userId]),
       pool.query('SELECT id, pregunta, precio, respuesta, created_at AS "creado" FROM asesor_historial WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]),
       pool.query('SELECT categoria, monto FROM presupuestos WHERE user_id = $1', [userId]),
-      pool.query("SELECT to_char(fecha, 'YYYY-MM-DD') AS fecha, liquido, ahorro, deudas FROM patrimonio_diario WHERE user_id = $1 AND fecha > CURRENT_DATE - 400 ORDER BY fecha", [userId])
+      pool.query("SELECT to_char(fecha, 'YYYY-MM-DD') AS fecha, liquido, ahorro, deudas FROM patrimonio_diario WHERE user_id = $1 AND fecha > CURRENT_DATE - 400 ORDER BY fecha", [userId]),
+      pool.query("SELECT meta_id AS \"metaId\", monto, to_char(fecha, 'YYYY-MM-DD') AS fecha FROM aportes_meta WHERE user_id = $1 ORDER BY fecha", [userId])
     ]);
 
     const c = config.rows[0] || {};
@@ -73,7 +74,8 @@ router.get('/', async (req, res) => {
       automaticos: automaticos.rows,
       asesorHistorial: asesorHist.rows,
       presupuestos: presupuestos.rows,
-      patrimonio: patrimonio.rows
+      patrimonio: patrimonio.rows,
+      aportesMetas: aportesMetas.rows
     });
   } catch (err) {
     console.error(err);

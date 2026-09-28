@@ -7,11 +7,11 @@
      se muestra la última copia guardada.
    - Notificaciones push: las muestra y al tocarlas abre la app.
    ================================================================== */
-const CACHE = 'batfinance-v2';
+const CACHE = 'batfinance-v3';
 const APP = [
   '/', '/index.html', '/manifest.webmanifest',
   '/css/styles.css', '/css/liquid.css',
-  '/js/state.js', '/js/despertar.js', '/js/purchase-evaluator.js', '/js/render.js', '/js/modals.js', '/js/app.js', '/js/extras.js', '/js/motion.js',
+  '/js/state.js', '/js/despertar.js', '/js/purchase-evaluator.js', '/js/render.js', '/js/modals.js', '/js/app.js', '/js/extras.js', '/js/metas.js', '/js/motion.js',
   '/img/logo-batfinance-v2.png', '/img/bat-marca.png', '/img/icon-192.png', '/img/icon-512.png', '/img/apple-touch-icon.png'
 ];
 

@@ -36,7 +36,12 @@ const INVERSIONES_COLS = `id, nombre, monto, tasa, created_at AS "creadaEn"`;
 const METAS_COLS = `
   id, nombre,
   monto_objetivo AS "montoObjetivo",
-  monto_actual AS "montoActual"
+  monto_actual AS "montoActual",
+  to_char(fecha_objetivo, 'YYYY-MM-DD') AS "fechaObjetivo",
+  prioridad,
+  to_char(created_at, 'YYYY-MM-DD') AS "creadaEn",
+  consejo,
+  to_char(consejo_fecha, 'YYYY-MM-DD') AS "consejoFecha"
 `;
 
 const APUESTAS_COLS = `

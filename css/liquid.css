@@ -634,3 +634,45 @@
 .despertar.listo .despertar-num{color:#7CD992;}
 .despertar.listo .despertar-bat{animation:none; filter:drop-shadow(0 0 30px rgba(255,220,140,0.9)); transform:scale(1.08); transition:transform .5s, filter .5s;}
 @media (prefers-reduced-motion: reduce){ .despertar-señal, .despertar-bat, .puntos i{animation:none;} }
+
+/* Contraste: los grises secundarios se perdían sobre el vidrio oscuro */
+:root{ --text-dim:#B4BCCB; --text-faint:#8C96A9; }
+.res-tile span, .kpi span, .cal-h, .ch-ax{color:var(--text-faint); fill:var(--text-faint);}
+.res-tile em, .row-sub, .fold-sub, .hint, .hero-sub{color:#A9B2C3;}
+.section-title{color:#C3CAD6;}
+.tab-btn{color:#98A2B4;}
+
+/* ---------- Metas con plan y fecha ---------- */
+.metas-cap-top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+.metas-eti{display:block; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint);}
+.metas-cap-num{display:block; font-size:30px; font-weight:700; color:#F2F4F8; font-variant-numeric:tabular-nums; margin-top:4px;}
+.metas-cap-num small{font-size:13px; font-weight:500; color:var(--text-dim); margin-left:4px;}
+.metas-cap-num.neg, .neg{color:var(--coral);} .pos{color:var(--cyan);}
+.metas-barra, .meta-barra{position:relative; height:8px; border-radius:99px; background:rgba(255,255,255,.08); margin:14px 0 10px; overflow:visible;}
+.metas-barra i, .meta-barra i{display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,#C8912E,#E8B04B);}
+.meta-barra u{position:absolute; top:-4px; width:2px; height:16px; background:#F2F4F8; border-radius:2px; transform:translateX(-1px); text-decoration:none;}
+.metas-cap-pie{display:flex; justify-content:space-between; gap:10px; font-size:13px; color:var(--text-dim); flex-wrap:wrap;}
+.metas-cap-pie b{color:#F2F4F8; font-variant-numeric:tabular-nums;}
+.metas-quincena .mq-fila{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06);}
+.mq-fila span{flex:1; color:#DDE2EA; min-width:0; overflow-wrap:anywhere;} .mq-fila b{font-variant-numeric:tabular-nums; color:#F2F4F8;}
+.mq-total{display:flex; justify-content:space-between; padding-top:10px; color:var(--text-dim);} .mq-total b{color:#E8B04B;}
+.meta-card{margin-bottom:12px;} .meta-card.completa{opacity:.8;}
+.meta-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.meta-top b{flex:1; min-width:0; font-size:16px; color:#F2F4F8;}
+.chip-prio, .chip-estado{font-size:11px; font-weight:600; padding:3px 8px; border-radius:99px; background:rgba(255,255,255,.08); color:#C3CAD6; white-space:nowrap;}
+.chip-prio.p-alta{background:rgba(232,176,75,.18); color:#F0C46A;} .chip-prio.p-baja{color:#98A2B4;}
+.chip-estado.ok{background:rgba(64,210,190,.15); color:#5FE0CC;} .chip-estado.mal{background:rgba(255,110,100,.16); color:#FF8C82;}
+.sheet-title .chip-estado{vertical-align:middle; margin-left:6px;}
+.meta-nums{display:flex; justify-content:space-between; margin-top:12px; font-variant-numeric:tabular-nums; color:#F2F4F8;}
+.meta-nums em{font-style:normal; color:var(--text-dim);}
+.meta-plan{font-size:14px; color:#DDE2EA; line-height:1.45;} .meta-plan b{color:#F2F4F8;}
+.meta-ritmo{font-size:12.5px; color:var(--text-dim); margin-top:6px; line-height:1.4;}
+.v-comodo{color:#5FE0CC;} .v-justo{color:#F0C46A;} .v-nocabe{color:#FF8C82;}
+.mt-preview{margin-top:14px; font-size:13.5px; color:#DDE2EA; line-height:1.45;} .mt-preview:empty{display:none;}
+.link-btn{background:none; border:0; padding:0; color:#E8B04B; font:inherit; font-size:13px; text-decoration:underline; cursor:pointer;}
+.meta-leyenda{display:flex; gap:14px; font-size:12px; color:var(--text-dim); margin:4px 0 8px;}
+.meta-leyenda i{display:inline-block; width:14px; height:3px; border-radius:2px; vertical-align:middle; margin-right:5px;}
+.meta-leyenda i.punteado{background:repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 4px,transparent 4px 7px);}
+.mt-ajuste{display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:13.5px; color:#DDE2EA;}
+.mt-ajuste b{color:#5FE0CC; white-space:nowrap; font-variant-numeric:tabular-nums;}
+.aviso-txt small{display:block; color:var(--text-dim); margin-top:2px;}

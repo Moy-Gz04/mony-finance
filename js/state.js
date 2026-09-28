@@ -60,6 +60,8 @@ function defaultState() {
     deudas: [],
     inversiones: [],
     metas: [],
+    aportesMetas: [],
+    recurrentes: [],
     apuestas: [],
     aportesFondo: [],
     suplementos: [],

@@ -336,3 +336,20 @@ CREATE TABLE IF NOT EXISTS app_config (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
 );
+
+-- ---------- Metas con plan y fecha ----------
+ALTER TABLE metas ADD COLUMN IF NOT EXISTS fecha_objetivo DATE;
+ALTER TABLE metas ADD COLUMN IF NOT EXISTS prioridad TEXT NOT NULL DEFAULT 'media';
+ALTER TABLE metas ADD COLUMN IF NOT EXISTS consejo JSONB;
+ALTER TABLE metas ADD COLUMN IF NOT EXISTS consejo_fecha DATE;
+
+-- Cada aporte a una meta, para medir el ritmo real de ahorro.
+CREATE TABLE IF NOT EXISTS aportes_meta (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  meta_id UUID NOT NULL REFERENCES metas(id) ON DELETE CASCADE,
+  monto NUMERIC(14,2) NOT NULL,
+  fecha DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_aportes_meta_user ON aportes_meta(user_id);

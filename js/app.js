@@ -205,6 +205,8 @@ function initConfig() {
 
   // Sin login: la app entra directo y carga los datos del servidor.
   showView('inicio');
+  // Si el servidor está dormido, pantalla de espera hasta que despierte.
+  if (typeof despertarServidor === 'function') await despertarServidor();
   try {
     await loadState();
     showView('inicio');

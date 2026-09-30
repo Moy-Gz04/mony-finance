@@ -1118,13 +1118,25 @@ function openAsesor() {
       '<button class="btn-primary" id="btn-asesor">Preguntar</button>' +
     '</div>' +
     '<div class="hint">El precio es opcional; si no lo pones, estimo uno típico.</div>' +
-    ((state.asesorHistorial || []).length ? '<div class="section-title" style="margin:22px 0 10px;">Preguntas anteriores</div><div class="asesor-hist">' +
+    ((state.asesorHistorial || []).length ? '<div class="asesor-hist-head"><div class="section-title" style="margin:0;">Preguntas anteriores</div><button class="small-btn" id="asesor-borrar-todas">Borrar todas</button></div><div class="asesor-hist">' +
       state.asesorHistorial.slice(0, 8).map(function (h) {
         const v = { comprar: 'Cómpralo', esperar: 'Espera', no_comprar: 'Mejor no' }[h.respuesta.veredicto] || '';
-        return '<button class="asesor-hist-item" onclick="verAsesorAnterior(\'' + h.id + '\')"><b>' + escapeHtml(h.pregunta) + '</b><span>' + v + (h.precio ? ' · ' + money(h.precio) : '') + ' · ' + fmtDate(String(h.creado).slice(0, 10)) + '</span></button>';
+        return '<div class="asesor-hist-fila"><button class="asesor-hist-item" onclick="verAsesorAnterior(\'' + h.id + '\')"><b>' + escapeHtml(h.pregunta) + '</b><span>' + v + (h.precio ? ' · ' + money(h.precio) : '') + ' · ' + fmtDate(String(h.creado).slice(0, 10)) + '</span></button>' +
+          '<button class="asesor-hist-del" aria-label="Borrar pregunta" onclick="borrarAsesorAnterior(\'' + h.id + '\', this)">✕</button></div>';
       }).join('') + '</div>' : '')
   );
   openAsesor._modal = m;
+  const bt = document.getElementById('asesor-borrar-todas');
+  if (bt) bt.addEventListener('click', function () {
+    if (!confirm('¿Borrar todas tus preguntas anteriores?')) return;
+    withLoading(bt, async function () {
+      await apiFetch('/asesor/historial', { method: 'DELETE' });
+      state.asesorHistorial = [];
+      const head = m.overlay.querySelector('.asesor-hist-head'); if (head) head.remove();
+      const lista = m.overlay.querySelector('.asesor-hist'); if (lista) lista.remove();
+      toast('Preguntas borradas');
+    });
+  });
   if (enfocarSinTeclado()) document.getElementById('asesor-pregunta').focus();
   document.getElementById('btn-asesor').addEventListener('click', preguntarAsesor);
   document.getElementById('asesor-pregunta').addEventListener('keydown', function (e) {
@@ -1147,6 +1159,18 @@ async function preguntarAsesor() {
   } finally {
     btn.disabled = false; btn.textContent = 'Preguntar';
   }
+}
+async function borrarAsesorAnterior(id, btn) {
+  btn.disabled = true;
+  try {
+    await apiFetch('/asesor/historial/' + id, { method: 'DELETE' });
+    state.asesorHistorial = (state.asesorHistorial || []).filter(function (x) { return x.id !== id; });
+    const fila = btn.closest('.asesor-hist-fila'); if (fila) fila.remove();
+    if (!state.asesorHistorial.length && openAsesor._modal) {
+      const head = openAsesor._modal.overlay.querySelector('.asesor-hist-head'); if (head) head.remove();
+    }
+    toast('Pregunta borrada');
+  } catch (e) { btn.disabled = false; toast(e.message || 'No se pudo borrar'); }
 }
 function verAsesorAnterior(id) {
   const h = (state.asesorHistorial || []).find(function (x) { return x.id === id; }); if (!h) return;

@@ -23,6 +23,21 @@ const $ = (n) => '$' + Number(n || 0).toLocaleString('es-MX', { maximumFractionD
 const fecha = (d) => String(d).slice(0, 10);
 function enDias(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 
+/* DELETE /api/asesor/historial/:id  — borra una pregunta anterior
+   DELETE /api/asesor/historial      — borra todas */
+router.delete('/historial/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM asesor_historial WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+router.delete('/historial', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM asesor_historial WHERE user_id = $1', [req.userId]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
 router.post('/', async (req, res) => {
   const pregunta = String((req.body || {}).pregunta || '').replace(/\s+/g, ' ').trim().slice(0, 500);
   const precioDado = Number((req.body || {}).precio) > 0 ? Math.round(Number(req.body.precio) * 100) / 100 : null;

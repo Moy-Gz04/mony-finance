@@ -158,9 +158,33 @@
     }
   }
 
+  /* En Pagos: cada tarjeta con saldo por pagar, con su fecha límite */
+  function renderPagosTarjetas() {
+    const wrap = document.getElementById('pagos-tarjetas-wrap'); if (!wrap) return;
+    const ts = (state.tarjetas || []).filter(function (t) { return t.usado > 0; });
+    wrap.hidden = !ts.length;
+    document.getElementById('pagos-tarjetas-list').innerHTML = ts.map(function (t) {
+      let sub = 'Usado ' + Math.round(t.usado / t.limite * 100) + '% de ' + money(t.limite), badge = '';
+      if (t.diaPago) {
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        const f = new Date(hoy.getFullYear(), hoy.getMonth(), Math.min(t.diaPago, 28));
+        if (f < hoy) f.setMonth(f.getMonth() + 1);
+        const dias = Math.round((f - hoy) / 86400000);
+        sub += ' · pago límite: ' + fmtDate(localISO(f));
+        badge = '<span class="row-badge ' + (dias <= 2 ? 'badge-urgent' : dias <= 7 ? 'badge-soon' : 'badge-ok') + '">' + (dias === 0 ? 'Vence hoy' : 'Vence en ' + dias + (dias <= 2 ? 'd' : ' días')) + '</span>';
+      }
+      return '<div class="row" data-tc="pago" data-id="' + t.id + '">' +
+        '<div class="row-icon" style="background:var(--cyan-dim); color:var(--cyan);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><line x1="2.5" y1="9.5" x2="21.5" y2="9.5"/><line x1="6" y1="15" x2="10" y2="15"/></svg></div>' +
+        '<div class="row-body"><div class="row-title">' + escapeHtml(t.nombre) + '</div><div class="row-sub">' + sub + '</div>' + badge + '</div>' +
+        '<div class="row-value">' + moneyDec(t.usado) + '</div></div>';
+    }).join('');
+  }
+  const renderDeudasPrevio = window.renderDeudas;
+  window.renderDeudas = function () { renderDeudasPrevio(); renderPagosTarjetas(); };
+
   window.renderTarjetas = renderTarjetas;
   const renderMovPrevio = window.renderMovimientos;
   window.renderMovimientos = function () { renderMovPrevio(); renderTarjetas(); };
   const renderAllPrevio = window.renderAll;
-  window.renderAll = function () { renderAllPrevio(); renderTarjetas(); };
+  window.renderAll = function () { renderAllPrevio(); renderTarjetas(); renderPagosTarjetas(); };
 })();

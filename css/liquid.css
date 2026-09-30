@@ -773,3 +773,10 @@
 .tc-an-titulo{font-size:18px; font-weight:700; margin-bottom:6px; text-wrap:balance;}
 .tc-an-diag{font-size:13.5px; color:var(--text-dim); line-height:1.55; margin-bottom:10px;}
 .tc-an-acc{margin:12px 0 0 18px; display:flex; flex-direction:column; gap:6px; font-size:13px; line-height:1.5;}
+
+.asesor-hist-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:22px 0 10px;}
+.asesor-hist-head .small-btn{padding:7px 12px; font-size:12px;}
+.asesor-hist-fila{display:flex; gap:6px; align-items:stretch;}
+.asesor-hist-fila .asesor-hist-item{flex:1; min-width:0;}
+.asesor-hist-del{flex:0 0 40px; border:1px solid var(--border); border-radius:14px; background:var(--glass); color:var(--text-dim); cursor:pointer; font-size:14px;}
+.asesor-hist-del:hover, .asesor-hist-del:focus-visible{color:var(--coral); border-color:var(--coral);}

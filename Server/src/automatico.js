@@ -76,7 +76,10 @@ async function procesarAutomaticos(userId) {
       let proximo = fecha10(s.proximo_cobro);
       for (let n = 0; proximo <= hoy && n < 30; n++) {
         const key = s.metodo === 'efectivo' ? 'efectivo' : 'tarjeta';
-        const saldo = (await client.query(`SELECT ${key}::float AS v FROM saldo WHERE user_id = $1`, [userId])).rows[0];
+        // A crédito se revisa lo disponible de la tarjeta, no el saldo.
+        const saldo = s.metodo === 'credito'
+          ? (await client.query('SELECT (limite - usado)::float AS v FROM tarjetas_credito WHERE id = $1 AND user_id = $2', [s.tarjeta_id, userId])).rows[0]
+          : (await client.query(`SELECT ${key}::float AS v FROM saldo WHERE user_id = $1`, [userId])).rows[0];
         if (!saldo || saldo.v < Number(s.monto)) {
           // No alcanza: queda pendiente (se ve como "Cobro pendiente") y se avisa una vez.
           await client.query(
@@ -89,10 +92,11 @@ async function procesarAutomaticos(userId) {
           "SELECT estado FROM movimientos_auto WHERE ref_id = $1 AND fecha = $2 AND tipo = 'suscripcion'", [s.id, proximo]);
         if (ya.rows.length && ya.rows[0].estado !== 'sin_saldo') { proximo = sumar(proximo, s.frecuencia); continue; }
         const g = await client.query(
-          `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo)
-           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-          [userId, 'Suscripción: ' + s.nombre, s.categoria, s.monto, proximo, s.metodo]);
-        await client.query(`UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`, [s.monto, userId]);
+          `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo, tarjeta_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+          [userId, 'Suscripción: ' + s.nombre, s.categoria, s.monto, proximo, s.metodo, s.metodo === 'credito' ? s.tarjeta_id : null]);
+        if (s.metodo === 'credito') await client.query('UPDATE tarjetas_credito SET usado = usado + $1 WHERE id = $2', [s.monto, s.tarjeta_id]);
+        else await client.query(`UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`, [s.monto, userId]);
         await client.query(
           `INSERT INTO movimientos_auto (user_id, tipo, ref_id, registro_id, nombre, monto, fecha, estado, visto)
            VALUES ($1,'suscripcion',$2,$3,$4,$5,$6,'aplicado',false)

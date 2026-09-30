@@ -172,7 +172,7 @@ function suscRowHtml(s) {
     return '<div class="row' + (s.activa ? '' : ' row-off') + '" onclick="openSuscripcion(\'' + s.id + '\')">' +
       '<div class="row-icon" style="background:' + c.color + '22; color:' + c.color + ';">' + c.icon + '</div>' +
       '<div class="row-body"><div class="row-title">' + escapeHtml(s.nombre) + '</div>' +
-        '<div class="row-sub">' + freq + ' · ' + metodoLabel(s.metodo) + ' · ' + fmtDate(s.proximoCobro) + '</div>' + badge + '</div>' +
+        '<div class="row-sub">' + freq + ' · ' + (s.metodo === 'credito' ? escapeHtml(nombreTarjeta(s.tarjetaId)) : metodoLabel(s.metodo)) + ' · ' + fmtDate(s.proximoCobro) + '</div>' + badge + '</div>' +
       '<div class="row-value">' + money(s.monto) + '</div></div>';
 }
 

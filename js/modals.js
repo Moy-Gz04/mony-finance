@@ -1246,9 +1246,10 @@ function formSuscripcion(s) {
     '<div class="field"><label>Próximo cobro</label><input type="date" id="su-fecha" value="' + String(s.proximoCobro).slice(0, 10) + '"></div>' +
     '<div class="field"><label>¿Con qué se paga?</label><div class="seg" id="su-metodo">' +
       '<button class="seg-opt' + (s.metodo === 'efectivo' ? ' active' : '') + '" data-v="efectivo">Efectivo</button>' +
-      '<button class="seg-opt' + (s.metodo !== 'efectivo' ? ' active' : '') + '" data-v="electronico">Tarjeta / electrónico</button>' +
+      '<button class="seg-opt' + (s.metodo === 'electronico' ? ' active' : '') + '" data-v="electronico">Tarjeta / electrónico</button>' +
+      (state.tarjetas || []).map(function (t) { return '<button class="seg-opt' + (s.metodo === 'credito' && s.tarjetaId === t.id ? ' active' : '') + '" data-v="credito" data-t="' + t.id + '">' + escapeHtml(t.nombre) + '<small style="display:block; opacity:.7; font-size:10.5px;">Crédito</small></button>'; }).join('') +
     '</div></div>' +
-    '<label class="toggle-row"><input type="checkbox" id="su-auto"' + (s.autoCobro === false ? '' : ' checked') + '><span><b>Cobrar automáticamente</b><small>El día del cobro se descuenta solo de tu saldo. Te aviso y lo puedes deshacer.</small></span></label>' +
+    '<label class="toggle-row"><input type="checkbox" id="su-auto"' + (s.autoCobro === false ? '' : ' checked') + '><span><b>Cobrar automáticamente</b><small>El día del cobro se descuenta solo de tu saldo (o se carga a tu tarjeta de crédito). Te aviso y lo puedes deshacer.</small></span></label>' +
     '<div class="field" style="margin-bottom:0;"><label>Categoría</label><div class="cat-grid" id="su-cats">' +
       CATEGORIAS.map(function (c) { return '<button class="cat-opt' + (s.categoria === c.id ? ' active' : '') + '" data-cat="' + c.id + '"><span class="ci">' + c.icon + '</span>' + c.label + '</button>'; }).join('') +
     '</div></div>';
@@ -1271,6 +1272,7 @@ function leerFormSuscripcion(m) {
     frecuencia: val('#su-freq', 'v'),
     proximoCobro: document.getElementById('su-fecha').value,
     metodo: val('#su-metodo', 'v'),
+    tarjetaId: val('#su-metodo', 't') || null,
     categoria: val('#su-cats', 'cat') || 'entretenimiento',
     autoCobro: document.getElementById('su-auto').checked
   };
@@ -1292,7 +1294,7 @@ function openSuscripcion(id) {
   const s = (state.suscripciones || []).find(function (x) { return x.id === id; }); if (!s) return;
   const m = openModal('<div class="sheet-title">' + escapeHtml(s.nombre) + '</div>' +
     (s.activa ? '<button class="btn-primary" id="su-pagar" style="margin-bottom:10px;">Registrar pago de ' + money(s.monto) + '</button>' +
-      '<div class="hint" style="margin:-2px 0 16px;">Se guarda como gasto, se descuenta de tu ' + (s.metodo === 'efectivo' ? 'efectivo' : 'tarjeta') + ' y el próximo cobro se mueve solo.</div>' : '') +
+      '<div class="hint" style="margin:-2px 0 16px;">Se guarda como gasto, ' + (s.metodo === 'credito' ? 'se carga a tu tarjeta de crédito ' + escapeHtml(nombreTarjeta(s.tarjetaId)) : 'se descuenta de tu ' + (s.metodo === 'efectivo' ? 'efectivo' : 'tarjeta')) + ' y el próximo cobro se mueve solo.</div>' : '') +
     formSuscripcion(s) +
     '<button class="btn-primary" id="su-save" style="margin-top:18px;">Guardar cambios</button>' +
     '<div class="btn-row" style="margin-top:10px;">' +

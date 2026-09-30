@@ -8,7 +8,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 const FRECUENCIAS = ['semanal', 'quincenal', 'mensual', 'anual'];
-const METODOS = ['efectivo', 'electronico'];
+const METODOS = ['efectivo', 'electronico', 'credito'];
 const CATEGORIAS = ['alimentos', 'ropa', 'entretenimiento', 'tecnologia', 'pareja', 'transporte', 'salud', 'hogar', 'otros'];
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -22,8 +22,10 @@ function leer(body) {
   if (!nombre) return { error: 'Escribe el nombre de la suscripción' };
   if (!(monto > 0)) return { error: 'El costo debe ser mayor a 0' };
   if (!proximoCobro) return { error: 'Elige la fecha del próximo cobro' };
+  const tarjetaId = metodo === 'credito' ? (body.tarjetaId || null) : null;
+  if (metodo === 'credito' && !tarjetaId) return { error: 'Elige la tarjeta de crédito' };
   const autoCobro = body.autoCobro !== false;
-  return { nombre, monto, frecuencia, metodo, categoria, proximoCobro, autoCobro };
+  return { nombre, monto, frecuencia, metodo, categoria, proximoCobro, autoCobro, tarjetaId };
 }
 
 function siguienteCobro(fecha, frecuencia) {
@@ -47,9 +49,9 @@ router.post('/', async (req, res) => {
   if (d.error) return res.status(400).json({ error: d.error });
   try {
     const r = await pool.query(
-      `INSERT INTO suscripciones (user_id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro, auto_cobro)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ${SUSCRIPCIONES_COLS}`,
-      [req.userId, d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro, d.autoCobro]
+      `INSERT INTO suscripciones (user_id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro, auto_cobro, tarjeta_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${SUSCRIPCIONES_COLS}`,
+      [req.userId, d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro, d.autoCobro, d.tarjetaId]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) {
@@ -64,9 +66,9 @@ router.put('/:id', async (req, res) => {
   const activa = (req.body || {}).activa !== false;
   try {
     const r = await pool.query(
-      `UPDATE suscripciones SET nombre=$1, monto=$2, frecuencia=$3, metodo=$4, categoria=$5, proximo_cobro=$6, activa=$7, auto_cobro=$8
+      `UPDATE suscripciones SET nombre=$1, monto=$2, frecuencia=$3, metodo=$4, categoria=$5, proximo_cobro=$6, activa=$7, auto_cobro=$8, tarjeta_id=$11
        WHERE id=$9 AND user_id=$10 RETURNING ${SUSCRIPCIONES_COLS}`,
-      [d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro, activa, d.autoCobro, req.params.id, req.userId]
+      [d.nombre, d.monto, d.frecuencia, d.metodo, d.categoria, d.proximoCobro, activa, d.autoCobro, req.params.id, req.userId, d.tarjetaId]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'No encontrada' });
     res.json(r.rows[0]);
@@ -88,14 +90,18 @@ router.post('/:id/pagar', async (req, res) => {
     const s = f.rows[0];
     const metodo = METODOS.includes((req.body || {}).metodo) ? req.body.metodo : s.metodo;
     const fecha = String(s.proximo_cobro).slice(0, 10);
-    await verificarFondos(client, req.userId, metodo, Number(s.monto));
+    const tarjetaId = metodo === 'credito' ? ((req.body || {}).tarjetaId || s.tarjeta_id) : null;
+    if (metodo === 'credito') {
+      const tc = await client.query('UPDATE tarjetas_credito SET usado = usado + $1 WHERE id = $2 AND user_id = $3 AND limite - usado >= $1 RETURNING id', [s.monto, tarjetaId, req.userId]);
+      if (!tc.rows.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'No te alcanza el crédito disponible de la tarjeta' }); }
+    } else await verificarFondos(client, req.userId, metodo, Number(s.monto));
     const gasto = await client.query(
-      `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${GASTOS_COLS}`,
-      [req.userId, 'Suscripción: ' + s.nombre, s.categoria, s.monto, fecha <= new Date().toISOString().slice(0, 10) ? fecha : new Date().toISOString().slice(0, 10), metodo]
+      `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo, tarjeta_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${GASTOS_COLS}`,
+      [req.userId, 'Suscripción: ' + s.nombre, s.categoria, s.monto, fecha <= new Date().toISOString().slice(0, 10) ? fecha : new Date().toISOString().slice(0, 10), metodo, tarjetaId]
     );
     const key = metodo === 'efectivo' ? 'efectivo' : 'tarjeta';
-    await client.query(`UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`, [s.monto, req.userId]);
+    if (metodo !== 'credito') await client.query(`UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`, [s.monto, req.userId]);
     const upd = await client.query(
       `UPDATE suscripciones SET proximo_cobro = $1 WHERE id = $2 RETURNING ${SUSCRIPCIONES_COLS}`,
       [siguienteCobro(fecha, s.frecuencia), s.id]

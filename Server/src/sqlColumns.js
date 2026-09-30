@@ -59,7 +59,7 @@ const SUPLEMENTOS_COLS = `id, nombre, orden, cantidad_por_toma AS "cantidadPorTo
 
 const TOMAS_SUPLEMENTO_COLS = `id, suplemento_id AS "suplementoId", fecha, cantidad`;
 
-const SUSCRIPCIONES_COLS = `id, nombre, monto, frecuencia, metodo, categoria, proximo_cobro AS "proximoCobro", activa, auto_cobro AS "autoCobro"`;
+const SUSCRIPCIONES_COLS = `id, nombre, monto, frecuencia, metodo, tarjeta_id AS "tarjetaId", categoria, proximo_cobro AS "proximoCobro", activa, auto_cobro AS "autoCobro"`;
 
 module.exports = {
   INGRESOS_COLS,

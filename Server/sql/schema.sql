@@ -383,3 +383,8 @@ CREATE INDEX IF NOT EXISTS idx_tarjetas_credito_user ON tarjetas_credito(user_id
 ALTER TABLE gastos ADD COLUMN IF NOT EXISTS tarjeta_id UUID REFERENCES tarjetas_credito(id) ON DELETE SET NULL;
 ALTER TABLE gastos DROP CONSTRAINT IF EXISTS gastos_metodo_check;
 ALTER TABLE gastos ADD CONSTRAINT gastos_metodo_check CHECK (metodo IN ('efectivo','electronico','credito'));
+
+-- Suscripciones pagadas con tarjeta de crédito
+ALTER TABLE suscripciones ADD COLUMN IF NOT EXISTS tarjeta_id UUID REFERENCES tarjetas_credito(id) ON DELETE SET NULL;
+ALTER TABLE suscripciones DROP CONSTRAINT IF EXISTS suscripciones_metodo_check;
+ALTER TABLE suscripciones ADD CONSTRAINT suscripciones_metodo_check CHECK (metodo IN ('efectivo','electronico','credito'));

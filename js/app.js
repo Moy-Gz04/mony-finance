@@ -113,6 +113,7 @@ function initNavigation() {
       document.getElementById('sub-gastos').hidden = currentSub !== 'gastos';
       document.getElementById('sub-ingresos').hidden = currentSub !== 'ingresos';
       document.getElementById('sub-plan').hidden = currentSub !== 'plan';
+      document.getElementById('sub-tarjetas').hidden = currentSub !== 'tarjetas';
       renderMovimientos();
     });
   });

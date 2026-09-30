@@ -67,6 +67,7 @@ function defaultState() {
     suplementos: [],
     tomasSuplementos: [],
     suscripciones: [],
+    tarjetas: [],
     fondoEmergencia: { actual: 0, mesesObjetivo: 6, gastoMensual: 6000 },
     config: {
       tasaSofipoDefault: 12,

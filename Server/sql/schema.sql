@@ -365,3 +365,16 @@ CREATE TABLE IF NOT EXISTS pronosticos (
   datos JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------- Tarjetas de crédito: límite, lo usado y lo disponible ----------
+CREATE TABLE IF NOT EXISTS tarjetas_credito (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
+  limite NUMERIC(12,2) NOT NULL CHECK (limite > 0),
+  usado NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (usado >= 0),
+  dia_corte SMALLINT,
+  dia_pago SMALLINT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_tarjetas_credito_user ON tarjetas_credito(user_id);

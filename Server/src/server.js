@@ -59,6 +59,7 @@ app.use('/api/apuestas', apuestasRoutes);
 app.use('/api/suplementos', suplementosRoutes);
 app.use('/api/ia', iaRoutes);
 app.use('/api/suscripciones', suscripcionesRoutes);
+app.use('/api/tarjetas', require('./routes/tarjetas'));
 app.use('/api/asesor', asesorRoutes);
 app.use('/api/recurrentes', recurrentesRoutes);
 app.use('/api/automaticos', automaticosRoutes);

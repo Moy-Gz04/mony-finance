@@ -744,3 +744,25 @@
 .meta-cuerpo{padding-top:12px;}
 .meta-cuerpo .meta-nums{align-items:center; margin:0 0 8px;}
 @media (prefers-reduced-motion: reduce){.meta-chev{transition:none;}}
+
+/* ---------- Tarjetas de crédito ---------- */
+.tc-card{position:relative; overflow:hidden; border-radius:20px; padding:18px 18px 14px; margin-bottom:14px;
+  background:linear-gradient(135deg,#2A2F3A 0%,#12161F 60%,#1B202B 100%); border:1px solid rgba(232,176,75,.28);
+  box-shadow:var(--glass-shadow); display:flex; flex-direction:column; gap:10px; font-variant-numeric:tabular-nums;}
+.tc-top{display:flex; align-items:center; gap:10px;}
+.tc-chip{width:34px; height:24px; border-radius:5px; background:linear-gradient(135deg,#E8B04B,#8C6A2A); opacity:.9;}
+.tc-nombre{font-weight:700; letter-spacing:.04em; color:var(--text);}
+.tc-disp small{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim);}
+.tc-disp b{font-size:28px; color:var(--cyan);}
+.tc-bar{height:8px; border-radius:6px; background:rgba(255,255,255,.08); overflow:hidden;}
+.tc-bar i{display:block; height:100%; border-radius:6px; background:#4ADE80;}
+.tc-bar.medio i{background:var(--amber);} .tc-bar.alto i{background:var(--coral);}
+.tc-datos{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--text-dim);}
+.tc-datos b{color:var(--text);}
+.tc-dias{font-size:12px; color:var(--text-dim);}
+.tc-acciones{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+.tc-acciones .small-btn{text-align:center;}
+.tc-acciones .small-btn:disabled{opacity:.4;}
+.tc-dos{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.tc-total{display:flex; flex-direction:column; gap:2px; margin-bottom:14px;}
+.tc-total span{font-size:12px; color:var(--text-dim);} .tc-total b{font-size:22px;} .tc-total small{color:var(--text-dim);}

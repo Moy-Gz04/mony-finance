@@ -27,6 +27,8 @@ function menosDias(fecha, n) {
   return dt.toISOString().slice(0, 10);
 }
 
+const { contextoCredito } = require('../credito');
+
 async function generarResumen(userId) {
   const semana = domingoReciente(hoyMX());
   const guardado = await pool.query('SELECT contenido FROM resumenes_semanales WHERE user_id=$1 AND semana=$2', [userId, semana]);
@@ -43,7 +45,9 @@ async function generarResumen(userId) {
     pool.query('SELECT actual::float a, (gasto_mensual * meses_objetivo)::float m FROM fondo_emergencia WHERE user_id=$1', [userId]),
     pool.query('SELECT descripcion, monto::float m FROM gastos WHERE user_id=$1 AND fecha BETWEEN $2 AND $3 ORDER BY monto DESC LIMIT 3', [userId, desde, semana])
   ]);
+  const cred = await contextoCredito(userId);
   const datos = {
+    credito: { usado: cred.usado, limite: cred.limite, uso: cred.uso },
     gastado: gastos.rows[0].t, compras: gastos.rows[0].n, gastadoSemanaAnterior: gastosPrev.rows[0].t,
     ingresos: ingresos.rows[0].t, saldo: saldo.rows[0] ? saldo.rows[0].v : 0,
     porCategoria: porCat.rows, top: top.rows,
@@ -58,7 +62,7 @@ async function generarResumen(userId) {
       'Dinero disponible hoy: ' + $(datos.saldo) + '. Por categoría: ' + (datos.porCategoria.map((c) => c.categoria + ' ' + $(c.t)).join(', ') || 'sin gastos') + '. ' +
       'Compras más grandes: ' + (datos.top.map((t) => t.descripcion + ' ' + $(t.m)).join(', ') || 'ninguna') + '. ' +
       'Deudas pendientes: ' + $(datos.deudaTotal) + (deudas.rows.length ? ' (' + deudas.rows.slice(0, 4).map((d) => d.nombre + ' cuota ' + $(d.c) + ' el ' + String(d.proximo_pago).slice(0, 10)).join('; ') + ')' : '') + '. ' +
-      'Fondo de emergencia: ' + $(datos.fondo.a) + ' de ' + $(datos.fondo.m) + '.\n\n' +
+      'Fondo de emergencia: ' + $(datos.fondo.a) + ' de ' + $(datos.fondo.m) + '. ' + cred.texto + '\n\n' +
       'Devuelve JSON: "titular" (máx. 8 palabras), "resumen" (2 frases con los números clave, comparando con la semana anterior), "recomendacion" (1 acción concreta para la próxima semana, con monto si aplica). No inventes datos.';
     try {
       texto = await preguntarGemini(prompt, {

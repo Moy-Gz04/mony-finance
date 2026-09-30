@@ -30,12 +30,13 @@
           '<button class="small-btn" data-tc="editar" data-id="' + t.id + '">Editar</button>' +
         '</div></div>';
     }).join('') : '<div class="empty"><b>Sin tarjetas de crédito</b>Agrega una para seguir tu límite y lo disponible.</div>') +
-      '<button class="btn-primary" style="margin-top:14px;" data-tc="nueva">Agregar tarjeta</button>';
+      (ts.length ? '<button class="btn-primary tc-analizar" style="margin-top:14px;" data-tc="analisis">✦ Analizar mis créditos</button>' : '') +
+      '<button class="btn-ghost" style="margin-top:10px; width:100%;" data-tc="nueva">Agregar tarjeta</button>';
   }
 
   document.addEventListener('click', function (e) {
     const b = e.target.closest('[data-tc]'); if (!b) return;
-    const acc = { nueva: nueva, editar: editar, compra: compra, pago: pago }[b.dataset.tc];
+    const acc = { nueva: nueva, editar: editar, compra: compra, pago: pago, analisis: analisis }[b.dataset.tc];
     if (acc) acc(b.dataset.id);
   });
 
@@ -130,6 +131,31 @@
         await refresh(); mo.close(); toast('Pago registrado');
       });
     });
+  }
+
+  /* Análisis con IA: uso de crédito, cuánto pagar ya y qué hacer */
+  async function analisis() {
+    const mo = openModal('<div class="sheet-title">Análisis de tus créditos</div><div id="tc-an" class="hint">Analizando tus tarjetas con tus números reales…</div>');
+    try {
+      const r = await apiFetch('/tarjetas/analisis', { method: 'POST' });
+      const etiqueta = { sano: 'Sano', cuidado: 'Cuidado', riesgo: 'En riesgo' }[r.estado] || r.estado;
+      document.getElementById('tc-an').outerHTML =
+        '<div class="tc-an-estado ' + r.estado + '">' + etiqueta + ' · ' + r.uso + '% de uso</div>' +
+        '<div class="tc-an-titulo">' + escapeHtml(r.titulo) + '</div>' +
+        '<p class="tc-an-diag">' + escapeHtml(r.diagnostico) + '</p>' +
+        '<div class="kv"><span class="kv-label">Debes en crédito</span><span class="kv-value">' + moneyDec(r.usado) + ' de ' + money(r.limite) + '</span></div>' +
+        '<div class="kv"><span class="kv-label">Tu dinero real</span><span class="kv-value">' + moneyDec(r.dinero) + '</span></div>' +
+        '<div class="kv"><span class="kv-label">Pago sugerido hoy</span><span class="kv-value">' + moneyDec(r.pagoSugerido) + '</span></div>' +
+        '<ul class="tc-an-acc">' + (r.acciones || []).map(function (a) { return '<li>' + escapeHtml(a) + '</li>'; }).join('') + '</ul>' +
+        ((state.tarjetas || []).length === 1 && r.pagoSugerido > 0 ? '<button class="btn-primary" id="tc-an-pagar" style="margin-top:12px;">Pagar ' + moneyDec(r.pagoSugerido) + ' ahora</button>' : '');
+      const b = document.getElementById('tc-an-pagar');
+      if (b) b.addEventListener('click', function () {
+        mo.close(); pago(state.tarjetas[0].id);
+        setTimeout(function () { const i = document.getElementById('tc-monto'); if (i) i.value = r.pagoSugerido.toFixed(2); }, 50);
+      });
+    } catch (err) {
+      const el = document.getElementById('tc-an'); if (el) el.textContent = err.message || 'No se pudo analizar';
+    }
   }
 
   window.renderTarjetas = renderTarjetas;

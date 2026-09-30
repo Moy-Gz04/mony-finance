@@ -27,7 +27,7 @@ router.use(requireAuth);
 const { preguntarGemini } = require('../gemini');
 const CATEGORIAS = ['alimentos', 'ropa', 'entretenimiento', 'tecnologia', 'pareja', 'transporte', 'salud', 'hogar', 'otros'];
 const GRUPO_NECESIDAD = ['alimentos', 'hogar', 'salud', 'transporte'];
-const METODOS = ['efectivo', 'electronico'];
+const METODOS = ['efectivo', 'electronico', 'credito'];
 const UMBRALES = [
   { min: 4.5, label: 'Compra muy inteligente', tone: 'excellent' },
   { min: 3.5, label: 'Buena decisión', tone: 'good' },
@@ -61,7 +61,7 @@ Reglas:
 - "descripcion": concepto corto (2 a 6 palabras, mayúscula inicial, sin precio). Ej. "Taxi al trabajo", "Chocolate para mi novia".
 - "categoria": una de ${CATEGORIAS.join(', ')}. "pareja" = para o con la novia/pareja. "transporte" incluye taxi, Uber, camión, gasolina.
 - "monto": número en pesos si lo dijo; null si no lo dijo. No lo inventes.
-- "metodo": "efectivo" si pagó en efectivo; "electronico" si fue tarjeta, transferencia o app; null si no lo dijo. Si dice que pagó todo de una forma, aplícala a todas.
+- "metodo": "efectivo" si pagó en efectivo; "credito" si dijo tarjeta de crédito, a crédito o el nombre de una tarjeta de crédito (ej. Plata, Plata Card); "electronico" si fue tarjeta de débito, transferencia o app; null si no lo dijo. Si dice que pagó todo de una forma, aplícala a todas.
 - No incluyas cosas que no fueron gastos (ej. "llegué al trabajo").`;
 
   try {
@@ -106,7 +106,8 @@ router.post('/gastos/registrar', async (req, res) => {
     descripcion: String(c.descripcion || '').trim().slice(0, 80),
     categoria: CATEGORIAS.includes(c.categoria) ? c.categoria : 'otros',
     monto: Math.round(Number(c.monto) * 100) / 100,
-    metodo: c.metodo
+    metodo: c.metodo,
+    tarjetaId: c.tarjetaId || null
   }));
   if (!compras.length) return res.status(400).json({ error: 'No hay compras que registrar' });
   if (compras.some((c) => !c.descripcion || !(c.monto > 0) || !METODOS.includes(c.metodo))) {
@@ -117,6 +118,13 @@ router.post('/gastos/registrar', async (req, res) => {
   try {
     /* Contexto real y saldo compra tras compra */
     const mes = fecha.slice(0, 7);
+    const tcs = (await pool.query('SELECT id, nombre, (limite - usado)::float AS disp, limite::float AS limite, usado::float AS usado FROM tarjetas_credito WHERE user_id = $1 ORDER BY created_at', [req.userId])).rows;
+    // Compras a crédito: si no dijo cuál tarjeta, la primera que tenga disponible.
+    for (const x of compras.filter((c) => c.metodo === 'credito')) {
+      const t = tcs.find((k) => k.id === x.tarjetaId) || tcs.find((k) => k.disp >= x.monto);
+      if (!t || t.disp < x.monto) return res.status(400).json({ error: 'No tienes crédito disponible para "' + x.descripcion + '"' });
+      x.tarjetaId = t.id; t.disp -= x.monto; t.usado += x.monto; x.tarjeta = t;
+    }
     const [saldo, config, gastosMes, deudas] = await Promise.all([
       pool.query('SELECT efectivo, tarjeta FROM saldo WHERE user_id = $1', [req.userId]),
       pool.query('SELECT distribucion_necesidades, distribucion_deseos, ingreso_mensual_fijo FROM config WHERE user_id = $1', [req.userId]),
@@ -139,6 +147,15 @@ router.post('/gastos/registrar', async (req, res) => {
        base de la evaluación; el presupuesto mensual es solo referencia. */
     const metricas = [];
     const lineas = compras.map((x, i) => {
+      if (x.metodo === 'credito') {
+        const g = grupo(x.categoria); usado[g] += x.monto;
+        const t = x.tarjeta, uso = Math.round(t.usado / t.limite * 100);
+        const totalCaja = caja.efectivo + caja.electronico;
+        metricas.push({ pctSaldo: 0, cubreDeudas: totalCaja >= deudasProximas + x.monto, grupo: g, uso });
+        return `${i}. "${x.descripcion}" (${x.categoria}, grupo ${g}): ${$(x.monto)} con TARJETA DE CRÉDITO ${t.nombre}.\n` +
+          `   CRÉDITO: no salió de su saldo, pero ahora debe ${$(t.usado)} en esa tarjeta (${uso}% de su límite de ${$(t.limite)}; sano es menos de 30%). Tiene ${$(totalCaja)} de dinero real para pagarla.\n` +
+          `   REFERENCIA (no es dinero disponible): plan mensual de ${g} ${$(meta[g])}, con esta compra lleva ${$(usado[g])}.`;
+      }
       const antes = caja[x.metodo];
       const totalAntes = caja.efectivo + caja.electronico;
       caja[x.metodo] -= x.monto;
@@ -175,7 +192,7 @@ Para CADA compra devuelve:
   2) Si después de la compra ya no le alcanza para las deudas de esta semana (eso la hace mala salvo que sea una necesidad real e inevitable).
   3) Si es necesidad o gusto: un antojo, botana, refresco o dulce es GUSTO aunque sea comida.
   4) Solo al final, si se pasa de su plan mensual.
-- "razones": 1 o 2 frases cortas (máx. 20 palabras), en segunda persona. La primera SIEMPRE con su saldo real (cuánto tenía o cuánto le queda y qué porcentaje se llevó). No uses el plan mensual como si fuera su dinero. No inventes datos.`;
+- "razones": 1 o 2 frases cortas (máx. 20 palabras), en segunda persona. La primera SIEMPRE con su saldo real (cuánto tenía o cuánto le queda y qué porcentaje se llevó); si fue a crédito, con lo que ahora debe en la tarjeta y su % de uso (a crédito se califica peor si el uso pasa de 30% o si su dinero real no alcanza para pagarla). No uses el plan mensual como si fuera su dinero. No inventes datos.`;
 
     let evals = [];
     try {
@@ -213,17 +230,21 @@ Para CADA compra devuelve:
         if (mt.pctSaldo > 0.4) score = Math.min(score, 2);
         else if (mt.pctSaldo > 0.2) score = Math.min(score, 3);
         if (!mt.cubreDeudas) score = Math.min(score, mt.grupo === 'necesidades' ? 3 : 2);
+        if (mt.uso > 60) score = Math.min(score, 2); else if (mt.uso > 30) score = Math.min(score, 3);
         const u = UMBRALES.find((t) => score >= t.min);
         const razones = (Array.isArray(ev.razones) ? ev.razones : []).map(String).filter(Boolean).slice(0, 2);
-        await verificarFondos(client, req.userId, x.metodo, x.monto);
+        if (x.metodo === 'credito') {
+          const tc = await client.query('UPDATE tarjetas_credito SET usado = usado + $1 WHERE id = $2 AND user_id = $3 AND limite - usado >= $1 RETURNING id', [x.monto, x.tarjetaId, req.userId]);
+          if (!tc.rows.length) throw Object.assign(new Error('sin credito'), { sinCredito: x.descripcion });
+        } else await verificarFondos(client, req.userId, x.metodo, x.monto);
         const ins = await client.query(
-          `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo, rating, evaluacion, seguimiento_fecha)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${GASTOS_COLS}`,
+          `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo, rating, evaluacion, seguimiento_fecha, tarjeta_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${GASTOS_COLS}`,
           [req.userId, x.descripcion, x.categoria, x.monto, fecha, x.metodo, score,
-            JSON.stringify({ tone: u.tone, label: u.label, fuente: 'ia', texto, razones }), seguimiento]
+            JSON.stringify({ tone: u.tone, label: u.label, fuente: 'ia', texto, razones }), seguimiento, x.metodo === 'credito' ? x.tarjetaId : null]
         );
         const key = x.metodo === 'efectivo' ? 'efectivo' : 'tarjeta';
-        await client.query(`UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`, [x.monto, req.userId]);
+        if (x.metodo !== 'credito') await client.query(`UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`, [x.monto, req.userId]);
         creados.push(ins.rows[0]);
       }
       await client.query('COMMIT');
@@ -233,6 +254,7 @@ Para CADA compra devuelve:
       if (err.tipo === 'fondos_insuficientes') {
         return res.status(400).json({ error: 'fondos_insuficientes', metodo: err.metodo, disponible: err.disponible, requerido: err.requerido, faltante: err.faltante });
       }
+      if (err.sinCredito) return res.status(400).json({ error: 'No tienes crédito disponible para "' + err.sinCredito + '"' });
       throw err;
     } finally {
       client.release();

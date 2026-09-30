@@ -201,7 +201,7 @@ function openRegistroIA() {
       btn.disabled = false; btn.textContent = '✦ Registrar';
     }
   }
-  function completa(c) { return c.monto > 0 && (c.metodo === 'efectivo' || c.metodo === 'electronico'); }
+  function completa(c) { return c.monto > 0 && (c.metodo === 'efectivo' || c.metodo === 'electronico' || (c.metodo === 'credito' && (state.tarjetas || []).length > 0)); }
 
   /* Solo se pide lo que falta; lo demás se muestra ya resuelto. */
   function pintarRevision() {
@@ -211,7 +211,7 @@ function openRegistroIA() {
       '<div class="ia-sub">Completa lo que no mencionaste y las registro.</div>' +
       compras.map(function (c, i) {
         const cat = catInfo(c.categoria);
-        const faltaMonto = !(c.monto > 0), faltaMetodo = !c.metodo;
+        const faltaMonto = !(c.monto > 0), faltaMetodo = !c.metodo || (c.metodo === 'credito' && !(state.tarjetas || []).length);
         return '<div class="ia-item' + (completa(c) ? '' : ' falta') + '">' +
           '<div class="ia-item-top"><span class="ia-item-cat" style="color:' + cat.color + '">' + cat.icon + '</span>' +
             '<b>' + escapeHtml(c.descripcion) + '</b>' +
@@ -219,7 +219,7 @@ function openRegistroIA() {
           (faltaMonto ? '<div class="ia-item-ask"><label>¿Cuánto costó?</label><div class="ia-monto ia-monto-sm"><span>$</span><input type="number" inputmode="decimal" min="0" step="0.01" data-i="' + i + '" class="ia-m-in" placeholder="0"></div></div>' : '') +
           (faltaMetodo
             ? '<div class="ia-item-ask"><label>¿Cómo pagaste?</label><div class="seg" data-i="' + i + '">' +
-                '<button class="seg-opt" data-m="efectivo">Efectivo</button><button class="seg-opt" data-m="electronico">Tarjeta</button></div></div>'
+                '<button class="seg-opt" data-m="efectivo">Efectivo</button><button class="seg-opt" data-m="electronico">Tarjeta</button>' + ((state.tarjetas || []).length ? '<button class="seg-opt" data-m="credito">Crédito</button>' : '') + '</div></div>'
             : '<div class="ia-item-sub">' + cat.label + ' · ' + metodoLabel(c.metodo) + '</div>') +
         '</div>';
       }).join('') +

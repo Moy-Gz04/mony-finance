@@ -11,6 +11,7 @@ const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { preguntarGemini, hayLlave } = require('../gemini');
+const { contextoCredito } = require('../credito');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -49,6 +50,7 @@ router.post('/', async (req, res) => {
       pool.query('SELECT pregunta, precio, respuesta, created_at FROM asesor_historial WHERE user_id = $1 ORDER BY created_at DESC LIMIT 6', [u])
     ]);
 
+    const cred = await contextoCredito(u);
     const s = saldo.rows[0] || { efectivo: 0, tarjeta: 0 };
     const disponible = Number(s.efectivo) + Number(s.tarjeta);
     const c = config.rows[0] || {};
@@ -72,6 +74,7 @@ router.post('/', async (req, res) => {
         '. Tasa SOFIPO de referencia: ' + (Number(c.tasa_sofipo_default) || 0) + '% anual.',
       'Deudas pendientes: ' + $(deudaTotal) + ' en total; cuotas que vencen en 7 días: ' + $(cuotas7) + '; en 30 días: ' + $(cuotas30) +
         (deudas.rows.length ? ' (' + deudas.rows.slice(0, 6).map((d) => d.nombre + ' cuota ' + $(d.monto_cuota) + ' el ' + fecha(d.proximo_pago)).join('; ') + ')' : '') + '.',
+      cred.texto,
       'Gasto por categoría, últimos 90 días (este mes / 90 días / nº de compras / calificación promedio): ' +
         (gastosCat.rows.length ? gastosCat.rows.map((g) => g.categoria + ' ' + $(g.mes) + ' / ' + $(g.noventa) + ' / ' + g.veces + (g.rating ? ' / ' + g.rating.toFixed(1) + '★' : '')).join('; ') : 'sin gastos registrados') + '.',
       'Preguntas anteriores al asesor: ' + (historial.rows.length ? historial.rows.map((h) => {
@@ -89,6 +92,7 @@ router.post('/', async (req, res) => {
       'Cómo decidir, en orden: 1) si el precio cabe en su dinero disponible sin dejarlo sin cubrir las cuotas de deuda próximas; ' +
       '2) qué tan sano está su fondo de emergencia; 3) si es necesidad o gusto y cuánto ya gasta en ese rubro; ' +
       '4) el costo de oportunidad: cuánto rendiría en SOFIPO, cuánto avanzaría una meta o el fondo, o cuánto bajaría una deuda. ' +
+      'Si tiene tarjetas de crédito: el crédito disponible NO es su dinero; comprar a crédito solo conviene si puede pagarlo completo antes de la fecha límite con su dinero real (sin intereses), y nunca si su uso de crédito pasaría de 30% o si ya debe en la tarjeta más de lo que tiene disponible. Si la compra se paga a crédito, dilo en las razones con el uso resultante de la tarjeta. ' +
       'El ingreso fijo NO es dinero disponible. Si la pregunta se parece a una anterior o a una meta que ya existe, menciónalo (cuándo lo preguntó y cuánto lleva en esa meta).\n\n' +
       'Devuelve JSON con:\n' +
       '- "categoria": una de ' + CATEGORIAS.join(', ') + '.\n' +

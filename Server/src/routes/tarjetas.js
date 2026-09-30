@@ -104,5 +104,47 @@ router.delete('/:id', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
 });
 
+
+/* POST /analisis — diagnóstico de tus créditos con IA y números reales */
+const { preguntarGemini, hayLlave } = require('../gemini');
+const { contextoCredito } = require('../credito');
+router.post('/analisis', async (req, res) => {
+  if (!hayLlave()) return res.status(503).json({ error: 'El análisis no está configurado (falta GEMINI_API_KEY en el servidor).' });
+  try {
+    const u = req.userId;
+    const cred = await contextoCredito(u);
+    if (!cred.tarjetas.length) return res.status(400).json({ error: 'Agrega una tarjeta de crédito primero' });
+    const [saldo, config, deudas, gastos] = await Promise.all([
+      pool.query('SELECT efectivo::float e, tarjeta::float t FROM saldo WHERE user_id = $1', [u]),
+      pool.query('SELECT ingreso_mensual_fijo::float i FROM config WHERE user_id = $1', [u]),
+      pool.query("SELECT COALESCE(SUM(monto_cuota), 0)::float c FROM deudas WHERE user_id = $1 AND NOT pagada AND proximo_pago <= CURRENT_DATE + 30", [u]),
+      pool.query("SELECT COALESCE(SUM(monto), 0)::float g FROM gastos WHERE user_id = $1 AND fecha >= CURRENT_DATE - 30", [u])
+    ]);
+    const s = saldo.rows[0] || { e: 0, t: 0 };
+    const $ = (n) => '$' + Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 2 });
+    const dinero = s.e + s.t;
+    const prompt = 'Eres un asesor financiero personal en México, directo y concreto. Analiza el uso de sus tarjetas de crédito.\n\n' +
+      'HOY ' + new Date().toISOString().slice(0, 10) + '. ' + cred.texto + '\n' +
+      'Dinero real disponible: ' + $(dinero) + ' (efectivo ' + $(s.e) + ', débito ' + $(s.t) + '). Ingreso mensual fijo: ' + $((config.rows[0] || {}).i) +
+      '. Gastos de los últimos 30 días: ' + $(gastos.rows[0].g) + '. Cuotas de otras deudas en 30 días: ' + $(deudas.rows[0].c) + '.\n\n' +
+      'Devuelve JSON: "estado" ("sano", "cuidado" o "riesgo"); "titulo" (máx. 8 palabras); "diagnostico" (2 frases con sus números: uso de crédito, si su dinero real alcanza para liquidar lo usado); ' +
+      '"pagoSugerido" (monto en pesos que debería pagar ya a la tarjeta, sin dejarlo sin dinero para sus cuotas; 0 si no debe); ' +
+      '"acciones" (2 a 4 acciones concretas, máx. 20 palabras cada una, en segunda persona, con montos y fechas si existen: pagar total antes de la fecha límite para no pagar intereses, bajar el uso a menos de 30%, no usar crédito para gustos, etc.). No inventes datos.';
+    const ia = await preguntarGemini(prompt, {
+      type: 'OBJECT',
+      properties: {
+        estado: { type: 'STRING', enum: ['sano', 'cuidado', 'riesgo'] }, titulo: { type: 'STRING' }, diagnostico: { type: 'STRING' },
+        pagoSugerido: { type: 'NUMBER' }, acciones: { type: 'ARRAY', items: { type: 'STRING' } }
+      },
+      required: ['estado', 'titulo', 'diagnostico', 'pagoSugerido', 'acciones']
+    }, { temperatura: 0.3 });
+    const pago = Math.max(0, Math.min(Number(ia.pagoSugerido) || 0, cred.usado, dinero));
+    res.json({ ...ia, pagoSugerido: Math.round(pago * 100) / 100, uso: cred.uso, usado: cred.usado, limite: cred.limite, dinero });
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'El análisis no respondió en este momento. Intenta de nuevo en un minuto.' });
+  }
+});
+
 router.COLS = COLS;
 module.exports = router;

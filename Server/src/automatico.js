@@ -112,6 +112,7 @@ async function procesarAutomaticos(userId) {
            + COALESCE((SELECT SUM(monto_actual) FROM metas WHERE user_id = $1), 0)
            + COALESCE((SELECT SUM(monto) FROM inversiones WHERE user_id = $1), 0),
          COALESCE((SELECT SUM(monto_pendiente) FROM deudas WHERE user_id = $1 AND NOT pagada), 0)
+           + COALESCE((SELECT SUM(usado) FROM tarjetas_credito WHERE user_id = $1), 0)
        ON CONFLICT (user_id, fecha) DO UPDATE SET liquido = EXCLUDED.liquido, ahorro = EXCLUDED.ahorro, deudas = EXCLUDED.deudas`,
       [userId, hoy]);
 

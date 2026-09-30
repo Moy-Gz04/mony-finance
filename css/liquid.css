@@ -766,3 +766,10 @@
 .tc-dos{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
 .tc-total{display:flex; flex-direction:column; gap:2px; margin-bottom:14px;}
 .tc-total span{font-size:12px; color:var(--text-dim);} .tc-total b{font-size:22px;} .tc-total small{color:var(--text-dim);}
+.tc-an-estado{display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-bottom:8px;}
+.tc-an-estado.sano{background:rgba(74,222,128,.15); color:#4ADE80;}
+.tc-an-estado.cuidado{background:var(--amber-dim); color:var(--amber);}
+.tc-an-estado.riesgo{background:var(--coral-dim); color:var(--coral);}
+.tc-an-titulo{font-size:18px; font-weight:700; margin-bottom:6px; text-wrap:balance;}
+.tc-an-diag{font-size:13.5px; color:var(--text-dim); line-height:1.55; margin-bottom:10px;}
+.tc-an-acc{margin:12px 0 0 18px; display:flex; flex-direction:column; gap:6px; font-size:13px; line-height:1.5;}

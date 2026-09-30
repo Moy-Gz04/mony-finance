@@ -326,7 +326,7 @@ function renderGastosList() {
     const starsHtml = g.rating != null
       ? '<span style="color:var(--amber); font-size:11px; font-weight:700;">' + g.rating.toFixed(1) + '★</span>'
       : '<span style="color:var(--text-faint); font-size:10.5px;">sin evaluar</span>';
-    const metodoHtml = '<span class="row-tag">' + (g.metodo === 'efectivo' ? 'Efectivo' : 'Tarjeta') + '</span>';
+    const metodoHtml = '<span class="row-tag">' + (g.metodo === 'efectivo' ? 'Efectivo' : g.metodo === 'credito' ? escapeHtml(nombreTarjeta(g.tarjetaId)) : 'Tarjeta') + '</span>';
     return (
       '<div class="row" onclick="openGastoDetalle(\'' + g.id + '\')">' +
         '<div class="row-icon" style="background:' + c.color + '22; color:' + c.color + '">' + c.icon + '</div>' +

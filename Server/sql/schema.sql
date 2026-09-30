@@ -378,3 +378,8 @@ CREATE TABLE IF NOT EXISTS tarjetas_credito (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_tarjetas_credito_user ON tarjetas_credito(user_id);
+
+-- Gastos pagados con tarjeta de crédito: no salen del saldo, suben lo usado de la tarjeta.
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS tarjeta_id UUID REFERENCES tarjetas_credito(id) ON DELETE SET NULL;
+ALTER TABLE gastos DROP CONSTRAINT IF EXISTS gastos_metodo_check;
+ALTER TABLE gastos ADD CONSTRAINT gastos_metodo_check CHECK (metodo IN ('efectivo','electronico','credito'));

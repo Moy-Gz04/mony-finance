@@ -14,6 +14,7 @@ const INGRESOS_COLS = `id, nombre, monto, frecuencia, fecha, metodo`;
 
 const GASTOS_COLS = `
   id, descripcion, categoria, monto, fecha, metodo, rating, evaluacion,
+  tarjeta_id AS "tarjetaId",
   seguimiento_fecha AS "seguimientoFecha",
   seguimiento_respuesta AS "seguimientoRespuesta",
   seguimiento_hecho AS "seguimientoHecho"

@@ -8,8 +8,8 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.post('/', async (req, res) => {
-  const { descripcion, categoria, monto, fecha, metodo, rating, evaluacion } = req.body || {};
-  if (!descripcion || !categoria || !monto || monto <= 0 || !fecha || !['efectivo', 'electronico'].includes(metodo)) {
+  const { descripcion, categoria, monto, fecha, metodo, rating, evaluacion, tarjetaId } = req.body || {};
+  if (!descripcion || !categoria || !monto || monto <= 0 || !fecha || !['efectivo', 'electronico', 'credito'].includes(metodo) || (metodo === 'credito' && !tarjetaId)) {
     return res.status(400).json({ error: 'Datos incompletos o inválidos' });
   }
   // Si la compra pasó por el asistente (tiene rating), programamos el
@@ -24,14 +24,26 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await verificarFondos(client, req.userId, metodo, monto);
+    if (metodo === 'credito') {
+      // Crédito: no sale del saldo, sube lo usado de la tarjeta (si alcanza lo disponible).
+      const t = await client.query(
+        'UPDATE tarjetas_credito SET usado = usado + $1 WHERE id = $2 AND user_id = $3 AND limite - usado >= $1 RETURNING id',
+        [monto, tarjetaId, req.userId]
+      );
+      if (!t.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'La compra rebasa lo disponible de la tarjeta de crédito' });
+      }
+    } else {
+      await verificarFondos(client, req.userId, metodo, monto);
+    }
     const ins = await client.query(
-      `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo, rating, evaluacion, seguimiento_fecha)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${GASTOS_COLS}`,
-      [req.userId, descripcion, categoria, monto, fecha, metodo, rating || null, evaluacion ? JSON.stringify(evaluacion) : null, seguimientoFecha]
+      `INSERT INTO gastos (user_id, descripcion, categoria, monto, fecha, metodo, rating, evaluacion, seguimiento_fecha, tarjeta_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${GASTOS_COLS}`,
+      [req.userId, descripcion, categoria, monto, fecha, metodo, rating || null, evaluacion ? JSON.stringify(evaluacion) : null, seguimientoFecha, metodo === 'credito' ? tarjetaId : null]
     );
     const key = metodo === 'efectivo' ? 'efectivo' : 'tarjeta';
-    await client.query(
+    if (metodo !== 'credito') await client.query(
       `UPDATE saldo SET ${key} = ${key} - $1, updated_at = now() WHERE user_id = $2`,
       [monto, req.userId]
     );
@@ -84,7 +96,9 @@ router.delete('/:id', async (req, res) => {
     const g = found.rows[0];
     await client.query('DELETE FROM gastos WHERE id = $1', [g.id]);
     const key = g.metodo === 'efectivo' ? 'efectivo' : 'tarjeta';
-    await client.query(
+    if (g.metodo === 'credito') {
+      if (g.tarjeta_id) await client.query('UPDATE tarjetas_credito SET usado = GREATEST(0, usado - $1) WHERE id = $2', [g.monto, g.tarjeta_id]);
+    } else await client.query(
       `UPDATE saldo SET ${key} = ${key} + $1, updated_at = now() WHERE user_id = $2`,
       [g.monto, req.userId]
     );

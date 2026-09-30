@@ -49,8 +49,14 @@ const GRUPO_NECESIDAD = ['alimentos', 'hogar', 'salud', 'transporte'];
    y el servidor mueve el saldo correspondiente automáticamente. */
 const METODOS_PAGO = [
   { id: 'efectivo', label: 'Efectivo' },
-  { id: 'electronico', label: 'Tarjeta / dinero electrónico' }
+  { id: 'electronico', label: 'Tarjeta / dinero electrónico' },
+  { id: 'credito', label: 'Tarjeta de crédito' }
 ];
+/* Nombre de la tarjeta de crédito de un gasto, o "Crédito" si ya no existe. */
+function nombreTarjeta(id) {
+  const t = (state.tarjetas || []).find(function (x) { return x.id === id; });
+  return t ? t.nombre : 'Crédito';
+}
 
 function defaultState() {
   return {

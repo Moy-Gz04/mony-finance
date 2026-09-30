@@ -78,6 +78,8 @@ function mostrarAlertaFondos(data) {
 function openAddGasto() {
   let selectedCat = null;
   let metodo = 'electronico';
+  let tarjetaId = null;
+  const tarjetas = state.tarjetas || [];
   const m = openModal(
     '<div class="sheet-title">Nueva compra / gasto</div>' +
     '<button class="ia-cta" id="g-ia"><span class="ia-cta-ico">✦</span><span><b>Registro inteligente</b><small>Cuéntame lo que gastaste y registro cada compra solo</small></span></button>' +
@@ -92,6 +94,10 @@ function openAddGasto() {
     '<div class="field"><label>¿Cómo pagaste?</label><div class="seg" id="g-metodo">' +
       '<button class="seg-opt" data-m="efectivo">Efectivo</button>' +
       '<button class="seg-opt active" data-m="electronico">Tarjeta / electrónico</button>' +
+      (tarjetas.length ? '<button class="seg-opt" data-m="credito">Crédito</button>' : '') +
+    '</div></div>' +
+    '<div class="field" id="g-tarjetas" hidden><label>¿Con qué tarjeta de crédito?</label><div class="seg">' +
+      tarjetas.map(function (t) { return '<button class="seg-opt" data-t="' + t.id + '">' + escapeHtml(t.nombre) + '<small style="display:block; opacity:.7; font-size:10.5px;">Disp. ' + moneyDec(t.disponible) + '</small></button>'; }).join('') +
     '</div></div>' +
     '<div class="field"><label>Fecha</label><input type="date" id="g-fecha" value="' + todayISO() + '"></div>' +
     '<div class="btn-row" style="margin-top:4px; align-items:stretch;">' +
@@ -109,6 +115,15 @@ function openAddGasto() {
     btn.addEventListener('click', function () {
       metodo = btn.dataset.m;
       m.overlay.querySelectorAll('#g-metodo .seg-opt').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      document.getElementById('g-tarjetas').hidden = metodo !== 'credito';
+      // Con una sola tarjeta se elige sola
+      if (metodo === 'credito' && tarjetas.length === 1) m.overlay.querySelector('#g-tarjetas .seg-opt').click();
+    });
+  });
+  m.overlay.querySelectorAll('#g-tarjetas .seg-opt').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      tarjetaId = btn.dataset.t;
+      m.overlay.querySelectorAll('#g-tarjetas .seg-opt').forEach(function (b) { b.classList.toggle('active', b === btn); });
     });
   });
   function collect() {
@@ -118,7 +133,12 @@ function openAddGasto() {
     if (!desc || !selectedCat || isNaN(monto) || monto <= 0) {
       toast('Completa descripción, categoría y monto'); return null;
     }
-    return { desc: desc, monto: monto, fecha: fecha, cat: selectedCat, metodo: metodo };
+    if (metodo === 'credito') {
+      const t = tarjetas.find(function (x) { return x.id === tarjetaId; });
+      if (!t) { toast('Elige la tarjeta de crédito'); return null; }
+      if (monto > t.disponible) { toast('Rebasa lo disponible de ' + t.nombre + ' (' + moneyDec(t.disponible) + ')'); return null; }
+    }
+    return { desc: desc, monto: monto, fecha: fecha, cat: selectedCat, metodo: metodo, tarjetaId: metodo === 'credito' ? tarjetaId : null };
   }
   document.getElementById('g-ia').addEventListener('click', function () {
     m.close();
@@ -130,7 +150,7 @@ function openAddGasto() {
     withLoading(btn, async function () {
       await apiFetch('/gastos', {
         method: 'POST',
-        body: JSON.stringify({ descripcion: d.desc, categoria: d.cat, monto: d.monto, fecha: d.fecha, metodo: d.metodo })
+        body: JSON.stringify({ descripcion: d.desc, categoria: d.cat, monto: d.monto, fecha: d.fecha, metodo: d.metodo, tarjetaId: d.tarjetaId })
       });
       await refresh(); m.close(); toast('Gasto registrado');
     });
@@ -451,7 +471,7 @@ function startWizard(gastoDraft) {
           method: 'POST',
           body: JSON.stringify({
             descripcion: gastoDraft.desc, categoria: gastoDraft.cat, monto: gastoDraft.monto,
-            fecha: gastoDraft.fecha, metodo: gastoDraft.metodo, rating: result.score,
+            fecha: gastoDraft.fecha, metodo: gastoDraft.metodo, tarjetaId: gastoDraft.tarjetaId, rating: result.score,
             evaluacion: { tone: result.tone, label: result.label, respuestas: answers }
           })
         });
@@ -469,12 +489,12 @@ function openGastoDetalle(id) {
     '<div class="sheet-title">' + escapeHtml(g.descripcion) + '</div>' +
     '<div class="kv"><span class="kv-label">Categoría</span><span class="kv-value">' + c.icon + ' ' + c.label + '</span></div>' +
     '<div class="kv"><span class="kv-label">Monto</span><span class="kv-value">' + money(g.monto) + '</span></div>' +
-    '<div class="kv"><span class="kv-label">Pagado con</span><span class="kv-value">' + (g.metodo === 'efectivo' ? 'Efectivo' : 'Tarjeta / electrónico') + '</span></div>' +
+    '<div class="kv"><span class="kv-label">Pagado con</span><span class="kv-value">' + (g.metodo === 'efectivo' ? 'Efectivo' : g.metodo === 'credito' ? 'Tarjeta de crédito · ' + escapeHtml(nombreTarjeta(g.tarjetaId)) : 'Tarjeta / electrónico') + '</span></div>' +
     '<div class="kv"><span class="kv-label">Fecha</span><span class="kv-value">' + fmtDate(g.fecha) + '</span></div>' +
     (g.rating != null ? '<div class="kv"><span class="kv-label">Evaluación</span><span class="kv-value">' + g.rating.toFixed(1) + '★ · ' + g.evaluacion.label + '</span></div>' : '') +
     (g.seguimientoHecho ? '<div class="kv"><span class="kv-label">Seguimiento</span><span class="kv-value">' + ({ contento: '😄 Contento', neutral: '😐 Neutral', arrepentido: '😔 Arrepentido' }[g.seguimientoRespuesta] || '') + '</span></div>' : '') +
     '<div class="btn-row"><button class="btn-ghost btn-danger" id="del-gasto" style="flex:1">Eliminar registro</button></div>' +
-    '<div class="hint">Al eliminar, el monto se regresa a tu saldo ' + (g.metodo === 'efectivo' ? 'en efectivo' : 'de tarjeta') + '.</div>'
+    '<div class="hint">' + (g.metodo === 'credito' ? 'Al eliminar, el monto se regresa a lo disponible de tu tarjeta de crédito.' : 'Al eliminar, el monto se regresa a tu saldo ' + (g.metodo === 'efectivo' ? 'en efectivo' : 'de tarjeta') + '.') + '</div>'
   );
   document.getElementById('del-gasto').addEventListener('click', function () {
     withLoading(this, async function () {
